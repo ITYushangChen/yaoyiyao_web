@@ -1,0 +1,162 @@
+:root {
+  --bg0: #0c1210;
+  --bg1: #152019;
+  --bg2: #1c2c22;
+  --ink: #f3efe6;
+  --muted: #a8b5aa;
+  --line: rgba(243, 239, 230, 0.12);
+  --gold: #e2b857;
+  --gold-deep: #c4922e;
+  --accent: #3d8f6a;
+  --danger: #d45d4a;
+  --display: "ZCOOL XiaoWei", "STXingkai", "华文行楷", "Songti SC", serif;
+  --sans: "DM Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "IBM Plex Mono", "Consolas", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(226, 184, 87, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 90% 10%, rgba(61, 143, 106, 0.16), transparent 50%),
+    linear-gradient(165deg, var(--bg0), var(--bg1) 45%, #101816);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  opacity: 0.5;
+}
+
+a {
+  color: inherit;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  padding: 0.85rem 1.4rem;
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+  color: #1a1408;
+  border-color: transparent;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #efc76a, var(--gold));
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, #4ea57a, var(--accent));
+  border-color: transparent;
+  color: #07140e;
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+.btn-danger {
+  border-color: rgba(212, 93, 74, 0.45);
+  color: #ffb4a8;
+}
+
+input,
+button {
+  font: inherit;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(226, 184, 87, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(226, 184, 87, 0);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shake-phone {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-12deg);
+  }
+  40% {
+    transform: rotate(10deg);
+  }
+  60% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(120px) rotate(220deg);
+    opacity: 0;
+  }
+}

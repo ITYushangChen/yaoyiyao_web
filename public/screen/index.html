@@ -1,0 +1,94 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>摇一摇 · 大屏</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared.css" />
+  <link rel="stylesheet" href="/screen/screen.css" />
+</head>
+<body class="screen-body">
+  <div class="screen-bg" id="screenBg" aria-hidden="true"></div>
+  <audio id="bgm" loop preload="auto"></audio>
+
+  <div class="screen-shell">
+    <header class="screen-top">
+      <div class="brand">
+        <div class="brand-mark">摇</div>
+        <div>
+          <h1>摇一摇抽奖</h1>
+          <p class="sub">扫码入场 · 分段倒计时揭晓</p>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="pill" id="phasePill">等待开始</div>
+        <div class="stat">
+          <span id="joinedCount">0</span>
+          <small>在场</small>
+        </div>
+        <div class="stat accent">
+          <span id="shakenCount">0</span>
+          <small>已摇</small>
+        </div>
+      </div>
+    </header>
+
+    <main class="screen-main mode-waiting" id="screenMain">
+      <section class="stage-panel" id="stagePanel">
+        <div class="stage-qr" id="stageQr">
+          <p class="qr-badge">扫码入场</p>
+          <div class="qr-frame qr-frame-static" id="qrFrame">
+            <span class="qr-corner tl"></span>
+            <span class="qr-corner tr"></span>
+            <span class="qr-corner bl"></span>
+            <span class="qr-corner br"></span>
+            <div id="qrBox" class="qr-box"></div>
+          </div>
+          <p class="qr-tip" id="qrTip">手机扫码加入本场</p>
+        </div>
+
+        <div class="stage-idle hidden" id="stageIdle">
+          <h2 id="stageTitle">等待下一段揭晓</h2>
+          <p id="stageDesc">请点击下方「开始倒计时」继续。</p>
+          <div class="joined-cloud" id="joinedCloud"></div>
+        </div>
+
+        <div class="stage-roll hidden" id="stageRoll">
+          <div class="roll-live" id="rollLive">
+            <div class="roll-half roll-half-top" id="rollHalfTop">
+              <p class="roll-step" id="rollStep">即将揭晓</p>
+              <h2 class="roll-prize" id="rollPrize">一 · 二 · 三等奖</h2>
+              <div class="roll-countdown" id="rollCountdown">3</div>
+              <p class="roll-countdown-label" id="rollCountdownLabel">预备…</p>
+            </div>
+            <div class="roll-half roll-half-bottom hidden" id="rollHalfBottom">
+              <p class="roll-names-label" id="rollNamesLabel">参与者名单滚动中</p>
+              <div class="roll-slot" id="rollSlot">
+                <span class="roll-name" id="rollName">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="roll-final hidden" id="rollFinal">
+            <p class="roll-final-kicker">恭喜获奖</p>
+            <div class="roll-winners-all" id="rollWinners"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="screen-controls">
+      <button class="btn btn-accent" id="btnStart" type="button">开始摇一摇</button>
+      <button class="btn btn-primary" id="btnCountdown" type="button" disabled>开始倒计时</button>
+      <button class="btn btn-ghost hidden" id="btnMusic" type="button">切换庆功音乐</button>
+      <button class="btn btn-ghost btn-danger" id="btnReset" type="button">重置本轮</button>
+      <span class="status-msg" id="statusMsg"></span>
+    </footer>
+  </div>
+
+  <script src="/vendor/qrcode.min.js"></script>
+  <script src="/screen/screen.js"></script>
+</body>
+</html>

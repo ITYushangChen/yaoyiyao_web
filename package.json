@@ -1,0 +1,13 @@
+{
+  "name": "yaoyiyao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "大屏摇一摇排序抽奖（局域网模式，支持约200人）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

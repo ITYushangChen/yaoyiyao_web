@@ -1,0 +1,358 @@
+.mobile-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.m-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.m-brand .brand-mark {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.85rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 1.4rem;
+  color: #1a1408;
+  background: linear-gradient(145deg, var(--gold), var(--gold-deep));
+}
+
+.m-brand h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.8rem;
+  letter-spacing: 0.08em;
+  font-weight: 400;
+}
+
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  padding: 1.5rem 1.25rem;
+  background: rgba(8, 14, 11, 0.55);
+  backdrop-filter: blur(8px);
+  animation: rise-in 0.4s ease both;
+}
+
+.panel h2 {
+  margin: 0 0 0.4rem;
+  font-family: var(--display);
+  font-size: 1.8rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.hint {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.field span {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+  border-radius: 0.9rem;
+  padding: 0.95rem 1rem;
+  outline: none;
+}
+
+.field input:focus {
+  border-color: rgba(226, 184, 87, 0.55);
+}
+
+.room-line {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.room-line code {
+  color: var(--gold);
+  font-family: var(--mono);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.msg {
+  min-height: 1.25rem;
+  margin: 0.85rem 0 0;
+  color: #ffb4a8;
+  font-size: 0.92rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.big-status {
+  font-family: var(--display);
+  font-size: 2.4rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+}
+
+.counter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1.25rem;
+}
+
+.counter > div {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  text-align: center;
+}
+
+.counter strong {
+  display: block;
+  font-size: 1.8rem;
+  color: var(--gold);
+}
+
+.counter span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.shake-orb {
+  width: 11rem;
+  height: 11rem;
+  margin: 0 auto 1.5rem;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(226, 184, 87, 0.35);
+  animation: pulse-glow 1.6s ease-in-out infinite;
+}
+
+.orb-core {
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 2.6rem;
+  color: #1a1408;
+  background: linear-gradient(145deg, var(--gold), var(--gold-deep));
+  transform-origin: center;
+}
+
+.shake-orb.active .orb-core {
+  animation: shake-phone 0.45s ease;
+}
+
+.reveal-kicker {
+  margin: 0;
+  color: var(--muted);
+  letter-spacing: 0.18em;
+}
+
+.result-prize {
+  margin: 0.4rem 0;
+  font-family: var(--display);
+  font-size: 2.8rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  font-weight: 400;
+}
+
+.result-rank {
+  margin: 0 0 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+/* 揭晓：与大屏同结构（上倒计时 / 下滚动） */
+.m-roll-live {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  min-height: 62vh;
+  width: 100%;
+  gap: 0;
+}
+
+.m-roll-live.is-intro-only {
+  grid-template-rows: 1fr;
+  min-height: 62vh;
+}
+
+.m-roll-live.is-intro-only .m-roll-top {
+  border-bottom: none;
+  min-height: 62vh;
+}
+
+.m-roll-top,
+.m-roll-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+}
+
+.m-roll-top {
+  border-bottom: 1px solid rgba(226, 184, 87, 0.22);
+}
+
+.m-roll-step {
+  margin: 0;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  font-size: 0.78rem;
+}
+
+.m-roll-prize {
+  margin: 0.3rem 0 0.65rem;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  color: var(--gold);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.m-roll-countdown {
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 50%;
+  border: 3px solid rgba(226, 184, 87, 0.55);
+  display: grid;
+  place-items: center;
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: #f5c84a;
+  font-variant-numeric: tabular-nums;
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+
+.m-roll-countdown.is-intro,
+.m-roll-countdown.is-go {
+  width: 7.5rem;
+  height: 7.5rem;
+  font-size: 4.2rem;
+  font-weight: 800;
+  color: #ffe566;
+  border-color: rgba(255, 229, 102, 0.75);
+  border-width: 4px;
+  text-shadow: 0 0 18px rgba(255, 214, 80, 0.5);
+}
+
+.m-roll-countdown.is-go {
+  font-size: 2.4rem;
+  letter-spacing: 0.06em;
+}
+
+.m-roll-label,
+.m-roll-names-label {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.m-roll-names-label {
+  margin-bottom: 0.55rem;
+}
+
+.m-roll-slot {
+  width: 100%;
+  min-height: 3.8rem;
+  display: grid;
+  place-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  border: 2px solid rgba(226, 184, 87, 0.35);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.m-roll-slot.rolling .m-roll-name {
+  animation: rise-in 0.12s ease;
+}
+
+.m-roll-name {
+  font-family: var(--display);
+  font-size: 1.85rem;
+  letter-spacing: 0.04em;
+}
+
+.m-roll-final {
+  width: 100%;
+  text-align: center;
+}
+
+.m-winners-all {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+  text-align: left;
+}
+
+.m-tier-col {
+  border: 1px solid rgba(226, 184, 87, 0.28);
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.m-tier-col h3 {
+  margin: 0 0 0.45rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--gold);
+  font-family: var(--display);
+  font-weight: 400;
+}
+
+.m-tier-col .person {
+  padding: 0.25rem 0;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.m-tier-col .person:last-child {
+  border-bottom: none;
+}
+
+.m-tier-empty {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

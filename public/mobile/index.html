@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>摇一摇</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared.css" />
+  <link rel="stylesheet" href="/mobile/mobile.css" />
+</head>
+<body>
+  <main class="mobile-app">
+    <header class="m-brand">
+      <div class="brand-mark">摇</div>
+      <h1>摇一摇</h1>
+    </header>
+
+    <section class="panel" id="panelJoin">
+      <h2>填写昵称入场</h2>
+      <p class="hint">昵称将显示在大屏中奖名单上</p>
+      <label class="field">
+        <span>昵称</span>
+        <input id="nickname" maxlength="16" placeholder="例如：小明" autocomplete="nickname" />
+      </label>
+      <p class="room-line">房间：<code id="roomLabel">—</code></p>
+      <button class="btn btn-primary btn-block" id="btnJoin" type="button">进入会场</button>
+      <p class="msg" id="joinMsg"></p>
+    </section>
+
+    <section class="panel hidden" id="panelWait">
+      <div class="big-status" id="waitStatus">已入场</div>
+      <p class="hint" id="waitHint">等待主持人开始…</p>
+      <div class="counter">
+        <div><strong id="mJoined">0</strong><span>在场</span></div>
+        <div><strong id="mShaken">0</strong><span>已摇</span></div>
+      </div>
+      <button class="btn btn-accent btn-block hidden" id="btnEnable" type="button">开启动作感应</button>
+      <p class="msg" id="sensorMsg"></p>
+    </section>
+
+    <section class="panel hidden" id="panelShake">
+      <div class="shake-orb" id="shakeOrb">
+        <div class="orb-ring"></div>
+        <div class="orb-core">摇</div>
+      </div>
+      <h2 id="shakeTitle">用力摇手机</h2>
+      <p class="hint" id="shakeHint">第一次有效摇动将决定你的名次</p>
+      <button class="btn btn-ghost btn-block" id="btnManualShake" type="button">点这里模拟摇一摇</button>
+    </section>
+
+    <section class="panel hidden" id="panelReveal">
+      <div class="m-roll-live" id="mRollLive">
+        <div class="m-roll-top">
+          <p class="m-roll-step" id="mRollStep">即将揭晓</p>
+          <h2 class="m-roll-prize" id="mRollPrize">一 · 二 · 三等奖</h2>
+          <div class="m-roll-countdown" id="mRollCountdown">3</div>
+          <p class="m-roll-label" id="mRollLabel">预备…</p>
+        </div>
+        <div class="m-roll-bottom hidden" id="mRollBottom">
+          <p class="m-roll-names-label" id="mRollNamesLabel">参与者名单滚动中</p>
+          <div class="m-roll-slot" id="mRollSlot">
+            <span class="m-roll-name" id="mRollName">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="m-roll-final hidden" id="mRollFinal">
+        <p class="reveal-kicker">恭喜获奖</p>
+        <div class="m-winners-all" id="mRollWinners"></div>
+        <p class="hint" id="mMyResultHint"></p>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="panelResult">
+      <p class="reveal-kicker" id="resultKicker">本轮结果</p>
+      <h2 class="result-prize" id="resultPrize">—</h2>
+      <p class="result-rank" id="resultRank"></p>
+      <p class="hint" id="resultName"></p>
+    </section>
+  </main>
+
+  <script src="/mobile/mobile.js"></script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+[
+  {
+    "roomId": "room_1ae345e9",
+    "config": {
+      "firstPrizeCount": 1,
+      "secondPrizeCount": 3,
+      "thirdPrizeCount": 10
+    },
+    "winners": {
+      "first": [
+        {
+          "playerId": "p_a0a1a49c",
+          "nickname": "用户0",
+          "rank": 1,
+          "tier": "first",
+          "prize": "一等奖"
+        }
+      ],
+      "second": [
+        {
+          "playerId": "p_8561cab9",
+          "nickname": "用户1",
+          "rank": 2,
+          "tier": "second",
+          "prize": "二等奖"
+        },
+        {
+          "playerId": "p_db454a22",
+          "nickname": "用户2",
+          "rank": 3,
+          "tier": "second",
+          "prize": "二等奖"
+        },
+        {
+          "playerId": "p_86bd2881",
+          "nickname": "用户3",
+          "rank": 4,
+          "tier": "second",
+          "prize": "二等奖"
+        }
+      ],
+      "third": [
+        {
+          "playerId": "p_11945e44",
+          "nickname": "用户4",
+          "rank": 5,
+          "tier": "third",
+          "prize": "三等奖"
+        }
+      ]
+    },
+    "ranking": [
+      {
+        "rank": 1,
+        "nickname": "用户0",
+        "shakenAt": 1784273852593
+      },
+      {
+        "rank": 2,
+        "nickname": "用户1",
+        "shakenAt": 1784273852593
+      },
+      {
+        "rank": 3,
+        "nickname": "用户2",
+        "shakenAt": 1784273852593
+      },
+      {
+        "rank": 4,
+        "nickname": "用户3",
+        "shakenAt": 1784273852593
+      },
+      {
+        "rank": 5,
+        "nickname": "用户4",
+        "shakenAt": 1784273852594
+      }
+    ],
+    "savedAt": 1784273853120
+  }
+]

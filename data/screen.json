@@ -1,0 +1,9 @@
+{
+  "backgroundDefault": "/assets/bg/stage-bg.jpg",
+  "backgroundReveal": "/assets/bg/stage-bg.jpg",
+  "backgroundDone": "/assets/bg/stage-bg.jpg",
+  "musicDefault": "",
+  "musicReveal": "",
+  "musicDone": "",
+  "countdownSeconds": 10
+}
