@@ -19,15 +19,14 @@
     </header>
 
     <section class="panel" id="panelJoin">
-      <h2 id="joinTitle">填写微信昵称入场</h2>
-      <p class="hint" id="joinHint">昵称将显示在大屏中奖名单上；微信内打开可自动获取</p>
-      <label class="field" id="nicknameField">
-        <span>微信昵称</span>
-        <input id="nickname" maxlength="32" placeholder="填写你的微信昵称" autocomplete="nickname" />
+      <h2>填写昵称入场</h2>
+      <p class="hint">昵称将显示在大屏中奖名单上</p>
+      <label class="field">
+        <span>昵称</span>
+        <input id="nickname" maxlength="16" placeholder="例如：小明" autocomplete="nickname" />
       </label>
       <p class="room-line">房间：<code id="roomLabel">—</code></p>
       <button class="btn btn-primary btn-block" id="btnJoin" type="button">进入会场</button>
-      <button class="btn btn-accent btn-block hidden" id="btnWxAuth" type="button">用微信昵称一键入场</button>
       <p class="msg" id="joinMsg"></p>
     </section>
 

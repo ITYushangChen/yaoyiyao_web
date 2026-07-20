@@ -8,12 +8,8 @@
   const panelResult = $('panelResult');
 
   const nicknameInput = $('nickname');
-  const nicknameField = $('nicknameField');
   const roomLabel = $('roomLabel');
-  const joinTitle = $('joinTitle');
-  const joinHint = $('joinHint');
   const btnJoin = $('btnJoin');
-  const btnWxAuth = $('btnWxAuth');
   const joinMsg = $('joinMsg');
 
   const waitStatus = $('waitStatus');
@@ -56,12 +52,9 @@
   let myShakeCount = 0;
   let lastShakeFire = 0;
   let joinedNickname = '';
-  let wxOpenId = params.get('wx_openid') || '';
-  let fromWechat = false;
   let countdownTimer = null;
   let introTimer = null;
   let pendingPersonalResult = null;
-  let wechatEnabled = false;
 
   const SHAKE_THRESHOLD = 22;
   const SHAKE_COOLDOWN_MS = 450;
@@ -69,10 +62,6 @@
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${location.host}/ws`;
-  }
-
-  function isWeChatBrowser() {
-    return /MicroMessenger/i.test(navigator.userAgent || '');
   }
 
   function show(panel) {
@@ -112,13 +101,7 @@
       if (!joinedNickname) return;
       setTimeout(() => {
         connect(() => {
-          send({
-            type: 'join_player',
-            roomId,
-            nickname: joinedNickname,
-            openId: wxOpenId,
-            fromWechat,
-          });
+          send({ type: 'join_player', roomId, nickname: joinedNickname });
         });
       }, 1200);
     });
@@ -347,7 +330,6 @@
 
     if (msg.type === 'joined') {
       joinedNickname = msg.nickname;
-      fromWechat = !!msg.fromWechat;
       setJoinError('');
       phase = msg.phase;
       myShakeCount = msg.shakeCount || 0;
@@ -470,81 +452,21 @@
     }
   }
 
-  function doJoin(nickname) {
-    const name = String(nickname || '').trim();
+  btnJoin.addEventListener('click', () => {
+    const nickname = nicknameInput.value.trim();
     if (!roomId) {
       setJoinError('缺少房间号，请重新扫描大屏二维码');
       return;
     }
-    if (!name) {
-      setJoinError('请填写微信昵称');
+    if (!nickname) {
+      setJoinError('请填写昵称');
       return;
     }
     setJoinError('连接中…');
     connect(() => {
-      send({
-        type: 'join_player',
-        roomId,
-        nickname: name,
-        openId: wxOpenId,
-        fromWechat,
-      });
+      send({ type: 'join_player', roomId, nickname });
     });
-  }
-
-  function startWxOAuth() {
-    if (!roomId) {
-      setJoinError('缺少房间号，请重新扫描大屏二维码');
-      return;
-    }
-    location.href = `/api/wechat/oauth?room=${encodeURIComponent(roomId)}`;
-  }
-
-  async function setupWechatJoin() {
-    const wxNick = params.get('wx_nick') || '';
-    const wxError = params.get('wx_error') || '';
-
-    if (wxError) {
-      setJoinError(wxError);
-    }
-
-    try {
-      const res = await fetch('/api/wechat/config');
-      const cfg = await res.json();
-      wechatEnabled = !!cfg.enabled;
-    } catch {
-      wechatEnabled = false;
-    }
-
-    if (wxNick && wxOpenId) {
-      fromWechat = true;
-      nicknameInput.value = wxNick;
-      joinTitle.textContent = '微信昵称已就绪';
-      joinHint.textContent = `将使用微信昵称「${wxNick}」入场`;
-      if (nicknameField) nicknameField.classList.add('hidden');
-      btnJoin.textContent = '确认进入会场';
-      btnWxAuth.classList.add('hidden');
-      // 微信内授权回来后自动入场
-      if (isWeChatBrowser()) {
-        doJoin(wxNick);
-      }
-      return;
-    }
-
-    if (wechatEnabled && isWeChatBrowser()) {
-      joinTitle.textContent = '微信一键入场';
-      joinHint.textContent = '授权后自动使用你的微信昵称';
-      btnWxAuth.classList.remove('hidden');
-      btnJoin.textContent = '手动填写昵称进入';
-      // 微信内且已配置：可直接跳转授权
-      btnWxAuth.focus();
-    } else if (isWeChatBrowser()) {
-      joinHint.textContent = '请填写与微信一致的昵称（未配置公众号自动授权）';
-    }
-  }
-
-  btnJoin.addEventListener('click', () => doJoin(nicknameInput.value));
-  btnWxAuth.addEventListener('click', startWxOAuth);
+  });
 
   nicknameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') btnJoin.click();
@@ -556,6 +478,4 @@
   if (!roomId) {
     setJoinError('请用手机扫描大屏二维码进入');
   }
-
-  setupWechatJoin();
 })();
