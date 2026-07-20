@@ -14,8 +14,7 @@
   const rollStep = $('rollStep');
   const rollPrize = $('rollPrize');
   const rollCountdown = $('rollCountdown');
-  const rollSlot = $('rollSlot');
-  const rollName = $('rollName');
+  const rollChart = $('rollChart');
   const rollFinal = $('rollFinal');
   const rollWinners = $('rollWinners');
   const rollLive = $('rollLive');
@@ -44,7 +43,6 @@
   let screenSettings = null;
   let musicUnlocked = false;
   let countdownTimer = null;
-  let nameTimer = null;
   let introTimer = null;
 
   const params = new URLSearchParams(location.search);
@@ -250,13 +248,10 @@
   }
 
   function stopRollAnimation() {
-    clearInterval(nameTimer);
     clearInterval(countdownTimer);
     clearTimeout(introTimer);
-    nameTimer = null;
     countdownTimer = null;
     introTimer = null;
-    rollSlot.classList.remove('rolling');
     rollCountdown.classList.remove('is-go', 'is-intro');
   }
 
@@ -270,7 +265,6 @@
     }
     if (rollHalfBottom) rollHalfBottom.classList.add('hidden');
     rollFinal.classList.add('hidden');
-    rollSlot.classList.remove('hidden');
     updateLayout('revealing');
     applyBackground('reveal');
     playMusic('reveal');
@@ -307,8 +301,9 @@
           const card = document.createElement('div');
           card.className = 'roll-winner-card';
           card.style.animationDelay = `${i * 60}ms`;
+          const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
           card.innerHTML = `
-            <div class="rank">第 ${w.rank} 名</div>
+            <div class="rank">第 ${w.rank} 名${shakes}</div>
             <div class="name">${escapeHtml(w.nickname)}</div>
           `;
           col.appendChild(card);
@@ -321,20 +316,45 @@
     }
   }
 
-  function startNameRolling(pool) {
-    clearInterval(nameTimer);
+  function renderTopChart(list) {
+    if (!rollChart) return;
+    const rows = (list || []).slice(0, 10);
+    rollNamesLabel.textContent = '摇动实力榜 · Top 10';
+    if (!rows.length) {
+      rollChart.innerHTML = '<p style="color:var(--muted);margin:0">暂无摇动数据</p>';
+      return;
+    }
+    const max = Math.max(...rows.map((r) => Number(r.shakeCount) || 0), 1);
+    rollChart.innerHTML = rows
+      .map((r, i) => {
+        const count = Number(r.shakeCount) || 0;
+        const pct = Math.max(6, Math.round((count / max) * 100));
+        return `
+          <div class="roll-bar-row" style="animation-delay:${i * 45}ms">
+            <span class="roll-bar-rank">${r.rank || i + 1}</span>
+            <span class="roll-bar-name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
+            <div class="roll-bar-track"><div class="roll-bar-fill" style="width:${pct}%"></div></div>
+            <span class="roll-bar-count">${count}</span>
+          </div>
+        `;
+      })
+      .join('');
+    // 触发宽度动画：先置 0 再设回
+    requestAnimationFrame(() => {
+      rollChart.querySelectorAll('.roll-bar-fill').forEach((el) => {
+        const w = el.style.width;
+        el.style.width = '0';
+        requestAnimationFrame(() => {
+          el.style.width = w;
+        });
+      });
+    });
+  }
+
+  function showTopChart(list) {
     if (rollLive) rollLive.classList.remove('is-intro-only');
     if (rollHalfBottom) rollHalfBottom.classList.remove('hidden');
-    rollNamesLabel.textContent = '参与者名单滚动中';
-    rollName.textContent = pool[0] || '???';
-    rollSlot.classList.add('rolling');
-    nameTimer = setInterval(() => {
-      const pick = pool[Math.floor(Math.random() * pool.length)];
-      rollName.textContent = pick;
-      rollSlot.classList.remove('rolling');
-      void rollSlot.offsetWidth;
-      rollSlot.classList.add('rolling');
-    }, 85);
+    renderTopChart(list);
   }
 
   function startTenCountdown(seconds, onDone) {
@@ -358,9 +378,9 @@
   function runIntroThenCountdown(payload) {
     const intro = payload.intro && payload.intro.length ? payload.intro : ['3', '2', '1', 'GO!'];
     const stepMs = payload.introStepMs || 1000;
-    const pool = payload.pool && payload.pool.length ? payload.pool : ['???'];
     const seconds = payload.countdownSeconds || screenSettings?.countdownSeconds || 10;
     const prizes = payload.prizes || {};
+    const topShakers = payload.topShakers || [];
 
     // 阶段一：全屏只播 3 → 2 → 1 → GO!
     if (rollLive) rollLive.classList.add('is-intro-only');
@@ -376,8 +396,8 @@
     let i = 0;
     const tickIntro = () => {
       if (i >= intro.length) {
-        // 阶段二：上半 10 秒倒计时 + 下半名单滚动
-        startNameRolling(pool);
+        // 阶段二：上半 10 秒倒计时 + 下半 Top10 柱状图
+        showTopChart(topShakers);
         startTenCountdown(seconds, () => {
           stopRollAnimation();
           if (rollLive) {

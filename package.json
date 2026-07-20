@@ -2,7 +2,7 @@
   "name": "yaoyiyao",
   "version": "1.0.0",
   "private": true,
-  "description": "大屏摇一摇排序抽奖（局域网模式，支持约200人）",
+  "description": "大屏摇一摇排序抽奖（局域网模式，按摇动次数排名，支持微信昵称）",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

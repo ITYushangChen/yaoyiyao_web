@@ -3,7 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const { upgrade } = require('./lib/ws');
 const { RoomManager } = require('./lib/room');
-const { getPrizeConfig, getLanSettings, setLanUrl, getScreenSettings } = require('./lib/db');
+const { getPrizeConfig, getLanSettings, setLanUrl, getScreenSettings, getWechatSettings } = require('./lib/db');
+const {
+  getPublicConfig: getWechatPublicConfig,
+  buildAuthorizeUrl,
+  consumeOAuthState,
+  exchangeCodeForUser,
+  isWechatConfigured,
+} = require('./lib/wechat');
 
 const PORT = Number(process.env.PORT) || 8780;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -34,6 +41,7 @@ function getAccessInfo() {
     usable: lan.usable,
     config: getPrizeConfig(),
     screenSettings: getScreenSettings(),
+    wechat: getWechatPublicConfig(),
     hint: lan.usable
       ? `局域网地址：${lan.baseUrl}（手机需连接同一 WiFi）`
       : '未检测到局域网 IP，请手动填写本机局域网地址。',
@@ -64,6 +72,16 @@ function sendJson(res, status, data) {
     'Cache-Control': 'no-store',
   });
   res.end(body);
+}
+
+function redirect(res, location) {
+  res.writeHead(302, { Location: location, 'Cache-Control': 'no-store' });
+  res.end();
+}
+
+function parseQuery(url) {
+  const q = (url || '').split('?')[1] || '';
+  return Object.fromEntries(new URLSearchParams(q));
 }
 
 function serveStatic(req, res) {
@@ -128,6 +146,7 @@ function onSocket(ws) {
         roomId: room.id,
         config: room.config,
         screenSettings: getScreenSettings(),
+        wechat: getWechatPublicConfig(),
         ...lanPayload(),
       });
       return;
@@ -140,7 +159,7 @@ function onSocket(ws) {
         return;
       }
       room.addScreen(ws);
-      ws.send({ type: 'lan_info', ...lanPayload() });
+      ws.send({ type: 'lan_info', ...lanPayload(), wechat: getWechatPublicConfig() });
       return;
     }
 
@@ -150,7 +169,10 @@ function onSocket(ws) {
         ws.send({ type: 'error', message: '房间不存在或已结束' });
         return;
       }
-      room.addPlayer(ws, msg.nickname);
+      room.addPlayer(ws, msg.nickname, {
+        openId: msg.openId || '',
+        fromWechat: !!msg.fromWechat,
+      });
       return;
     }
 
@@ -187,6 +209,7 @@ function onSocket(ws) {
 
 const server = http.createServer(async (req, res) => {
   const urlPath = (req.url || '/').split('?')[0];
+  const query = parseQuery(req.url);
 
   if (urlPath === '/api/health') {
     sendJson(res, 200, { ok: true, mode: 'lan' });
@@ -200,6 +223,60 @@ const server = http.createServer(async (req, res) => {
 
   if (urlPath === '/api/screen-settings') {
     sendJson(res, 200, getScreenSettings());
+    return;
+  }
+
+  if (urlPath === '/api/wechat/config') {
+    sendJson(res, 200, getWechatPublicConfig());
+    return;
+  }
+
+  if (urlPath === '/api/wechat/oauth') {
+    const roomId = query.room || '';
+    const result = buildAuthorizeUrl(roomId);
+    if (!result.ok) {
+      sendJson(res, 400, result);
+      return;
+    }
+    redirect(res, result.url);
+    return;
+  }
+
+  if (urlPath === '/api/wechat/callback') {
+    const code = query.code || '';
+    const state = query.state || '';
+    const pending = consumeOAuthState(state);
+    const roomId = pending ? pending.roomId : '';
+    const backBase = getWechatSettings().oauthBaseUrl || '';
+
+    const failRedirect = (message) => {
+      const q = new URLSearchParams({
+        room: roomId,
+        wx_error: message || '微信授权失败',
+      });
+      redirect(res, `${backBase}/m?${q.toString()}`);
+    };
+
+    if (!code) {
+      failRedirect('未获得微信授权码');
+      return;
+    }
+
+    try {
+      const user = await exchangeCodeForUser(code);
+      if (!user.ok) {
+        failRedirect(user.message);
+        return;
+      }
+      const q = new URLSearchParams({
+        room: roomId,
+        wx_nick: user.nickname,
+        wx_openid: user.openId,
+      });
+      redirect(res, `${backBase}/m?${q.toString()}`);
+    } catch {
+      failRedirect('微信接口请求失败');
+    }
     return;
   }
 
@@ -278,6 +355,11 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  二维码将使用: ${lan.baseUrl}`);
   } else {
     console.log('  未自动检测到局域网 IP，请在大屏手动填写');
+  }
+  if (isWechatConfigured()) {
+    console.log('  微信授权: 已启用（扫码后自动使用微信昵称）');
+  } else {
+    console.log('  微信授权: 未启用（可在 data/wechat.json 配置公众号）');
   }
   console.log('  请让手机连接与电脑相同的 WiFi');
   console.log(`  奖项配置: data/config.json`);

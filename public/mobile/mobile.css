@@ -291,25 +291,66 @@
   margin-bottom: 0.55rem;
 }
 
-.m-roll-slot {
+.m-roll-chart {
   width: 100%;
-  min-height: 3.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 42vh;
+  overflow: auto;
+}
+
+.m-bar-row {
   display: grid;
-  place-items: center;
-  padding: 0.85rem 1rem;
-  border-radius: 1rem;
-  border: 2px solid rgba(226, 184, 87, 0.35);
-  background: rgba(0, 0, 0, 0.28);
+  grid-template-columns: 1.4rem minmax(3.2rem, 5rem) 1fr 2.2rem;
+  gap: 0.35rem;
+  align-items: center;
 }
 
-.m-roll-slot.rolling .m-roll-name {
-  animation: rise-in 0.12s ease;
+.m-bar-rank {
+  font-weight: 700;
+  color: var(--gold);
+  font-size: 0.8rem;
+  text-align: right;
 }
 
-.m-roll-name {
-  font-family: var(--display);
-  font-size: 1.85rem;
-  letter-spacing: 0.04em;
+.m-bar-name {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-bar-track {
+  height: 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.m-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9a227, #f0d36a);
+}
+
+.m-bar-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f5c84a;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.shake-count-line {
+  margin: 0.35rem 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.shake-count-line strong {
+  color: var(--gold);
+  font-size: 1.25rem;
 }
 
 .m-roll-final {

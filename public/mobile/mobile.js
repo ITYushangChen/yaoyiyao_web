@@ -8,8 +8,12 @@
   const panelResult = $('panelResult');
 
   const nicknameInput = $('nickname');
+  const nicknameField = $('nicknameField');
   const roomLabel = $('roomLabel');
+  const joinTitle = $('joinTitle');
+  const joinHint = $('joinHint');
   const btnJoin = $('btnJoin');
+  const btnWxAuth = $('btnWxAuth');
   const joinMsg = $('joinMsg');
 
   const waitStatus = $('waitStatus');
@@ -22,6 +26,7 @@
   const shakeOrb = $('shakeOrb');
   const shakeTitle = $('shakeTitle');
   const shakeHint = $('shakeHint');
+  const myShakeCountEl = $('myShakeCount');
   const btnManualShake = $('btnManualShake');
 
   const mRollLive = $('mRollLive');
@@ -32,8 +37,7 @@
   const mRollCountdown = $('mRollCountdown');
   const mRollLabel = $('mRollLabel');
   const mRollNamesLabel = $('mRollNamesLabel');
-  const mRollSlot = $('mRollSlot');
-  const mRollName = $('mRollName');
+  const mRollChart = $('mRollChart');
   const mRollWinners = $('mRollWinners');
   const mMyResultHint = $('mMyResultHint');
 
@@ -48,21 +52,27 @@
   let ws = null;
   let phase = 'waiting';
   let sensorReady = false;
-  let shaken = false;
   let myRank = null;
+  let myShakeCount = 0;
   let lastShakeFire = 0;
   let joinedNickname = '';
-  let nameTimer = null;
+  let wxOpenId = params.get('wx_openid') || '';
+  let fromWechat = false;
   let countdownTimer = null;
   let introTimer = null;
   let pendingPersonalResult = null;
+  let wechatEnabled = false;
 
   const SHAKE_THRESHOLD = 22;
-  const SHAKE_COOLDOWN_MS = 900;
+  const SHAKE_COOLDOWN_MS = 450;
 
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${location.host}/ws`;
+  }
+
+  function isWeChatBrowser() {
+    return /MicroMessenger/i.test(navigator.userAgent || '');
   }
 
   function show(panel) {
@@ -102,7 +112,13 @@
       if (!joinedNickname) return;
       setTimeout(() => {
         connect(() => {
-          send({ type: 'join_player', roomId, nickname: joinedNickname });
+          send({
+            type: 'join_player',
+            roomId,
+            nickname: joinedNickname,
+            openId: wxOpenId,
+            fromWechat,
+          });
         });
       }, 1200);
     });
@@ -114,13 +130,10 @@
   }
 
   function stopRevealTimers() {
-    clearInterval(nameTimer);
     clearInterval(countdownTimer);
     clearTimeout(introTimer);
-    nameTimer = null;
     countdownTimer = null;
     introTimer = null;
-    mRollSlot.classList.remove('rolling');
     mRollCountdown.classList.remove('is-go', 'is-intro');
   }
 
@@ -147,7 +160,8 @@
         list.forEach((w) => {
           const row = document.createElement('div');
           row.className = 'person';
-          row.innerHTML = `<strong>第 ${w.rank} 名</strong> · ${escapeHtml(w.nickname)}`;
+          const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
+          row.innerHTML = `<strong>第 ${w.rank} 名</strong> · ${escapeHtml(w.nickname)}${shakes}`;
           col.appendChild(row);
         });
       }
@@ -155,20 +169,35 @@
     });
   }
 
-  function startNameRolling(pool) {
-    clearInterval(nameTimer);
+  function renderTopChart(list) {
+    if (!mRollChart) return;
+    const rows = (list || []).slice(0, 10);
+    mRollNamesLabel.textContent = '摇动实力榜 · Top 10';
+    if (!rows.length) {
+      mRollChart.innerHTML = '<p class="m-tier-empty">暂无数据</p>';
+      return;
+    }
+    const max = Math.max(...rows.map((r) => Number(r.shakeCount) || 0), 1);
+    mRollChart.innerHTML = rows
+      .map((r, i) => {
+        const count = Number(r.shakeCount) || 0;
+        const pct = Math.max(8, Math.round((count / max) * 100));
+        return `
+          <div class="m-bar-row">
+            <span class="m-bar-rank">${r.rank || i + 1}</span>
+            <span class="m-bar-name">${escapeHtml(r.nickname)}</span>
+            <div class="m-bar-track"><div class="m-bar-fill" style="width:${pct}%"></div></div>
+            <span class="m-bar-count">${count}</span>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function showTopChart(list) {
     if (mRollLive) mRollLive.classList.remove('is-intro-only');
     if (mRollBottom) mRollBottom.classList.remove('hidden');
-    mRollNamesLabel.textContent = '参与者名单滚动中';
-    mRollName.textContent = pool[0] || '???';
-    mRollSlot.classList.add('rolling');
-    nameTimer = setInterval(() => {
-      const pick = pool[Math.floor(Math.random() * pool.length)];
-      mRollName.textContent = pick;
-      mRollSlot.classList.remove('rolling');
-      void mRollSlot.offsetWidth;
-      mRollSlot.classList.add('rolling');
-    }, 85);
+    renderTopChart(list);
   }
 
   function startTenCountdown(seconds, onDone) {
@@ -200,9 +229,9 @@
 
     const intro = payload.intro && payload.intro.length ? payload.intro : ['3', '2', '1', 'GO!'];
     const stepMs = payload.introStepMs || 1000;
-    const pool = payload.pool && payload.pool.length ? payload.pool : ['???'];
     const seconds = payload.countdownSeconds || 10;
     const prizes = payload.prizes || {};
+    const topShakers = payload.topShakers || [];
 
     mRollStep.textContent = '预备开始';
     mRollPrize.textContent =
@@ -213,7 +242,7 @@
     let i = 0;
     const tickIntro = () => {
       if (i >= intro.length) {
-        startNameRolling(pool);
+        showTopChart(topShakers);
         startTenCountdown(seconds, () => {
           stopRevealTimers();
           mRollLive.classList.add('hidden');
@@ -223,7 +252,7 @@
           if (pendingPersonalResult) {
             mMyResultHint.textContent = pendingPersonalResult;
           } else if (myRank) {
-            mMyResultHint.textContent = `你的排名：第 ${myRank} 名（结果稍后确认）`;
+            mMyResultHint.textContent = `你的排名：第 ${myRank} 名 · 摇了 ${myShakeCount} 次`;
           } else {
             mMyResultHint.textContent = '本轮未成功摇到';
           }
@@ -241,23 +270,23 @@
     tickIntro();
   }
 
+  function updateShakeUi() {
+    if (myShakeCountEl) myShakeCountEl.textContent = String(myShakeCount);
+    if (myShakeCount > 0) {
+      shakeTitle.textContent = myRank ? `第 ${myRank} 名 · 已摇 ${myShakeCount} 次` : `已摇 ${myShakeCount} 次`;
+      shakeHint.textContent = '继续摇！次数越多排名越高';
+    }
+  }
+
   function applyPhase(next) {
     phase = next;
 
     if (phase === 'revealing') {
-      // 具体 UI 由 reveal_roll 驱动；若仅收到 phase，显示等待
       if (panelReveal.classList.contains('hidden')) {
-        waitStatus.textContent = shaken ? (myRank ? `第 ${myRank} 名` : '已摇到') : '未摇到';
+        waitStatus.textContent = myShakeCount ? (myRank ? `第 ${myRank} 名` : '已摇到') : '未摇到';
         waitHint.textContent = '揭晓即将开始，请看大屏与本机倒计时';
         show(panelWait);
       }
-      return;
-    }
-
-    if (shaken && phase !== 'done' && phase !== 'locked') {
-      shakeTitle.textContent = myRank ? `已记录 · 第 ${myRank} 名` : '已记录';
-      shakeHint.textContent = '等待主持人开始倒计时揭晓';
-      show(panelShake);
       return;
     }
 
@@ -267,15 +296,21 @@
         ? '用力摇动手机，或点下方按钮'
         : '请先开启动作感应，或使用模拟按钮';
       btnEnable.classList.toggle('hidden', sensorReady);
-      shakeTitle.textContent = '用力摇手机';
-      shakeHint.textContent = '第一次有效摇动将决定你的名次';
+      if (myShakeCount === 0) {
+        shakeTitle.textContent = '用力摇手机';
+        shakeHint.textContent = '摇得越多排名越高，冲刺前十！';
+      } else {
+        updateShakeUi();
+      }
       show(panelShake);
       return;
     }
 
     if (phase === 'locked') {
-      waitStatus.textContent = shaken ? (myRank ? `第 ${myRank} 名` : '已摇到') : '未摇到';
-      waitHint.textContent = '等待主持人开始倒计时';
+      waitStatus.textContent = myShakeCount ? (myRank ? `第 ${myRank} 名` : '已摇到') : '未摇到';
+      waitHint.textContent = myShakeCount
+        ? `你摇了 ${myShakeCount} 次，等待主持人开始倒计时`
+        : '等待主持人开始倒计时';
       show(panelWait);
       return;
     }
@@ -312,8 +347,11 @@
 
     if (msg.type === 'joined') {
       joinedNickname = msg.nickname;
+      fromWechat = !!msg.fromWechat;
       setJoinError('');
       phase = msg.phase;
+      myShakeCount = msg.shakeCount || 0;
+      updateShakeUi();
       maybeRequestSensorUi();
       applyPhase(msg.phase);
       return;
@@ -328,14 +366,13 @@
     }
 
     if (msg.type === 'shaken') {
-      shaken = true;
+      myShakeCount = msg.shakeCount || myShakeCount + 1;
       myRank = msg.rank;
       shakeOrb.classList.remove('active');
       void shakeOrb.offsetWidth;
       shakeOrb.classList.add('active');
-      if (navigator.vibrate) navigator.vibrate(40);
-      shakeTitle.textContent = `已记录 · 第 ${msg.rank} 名`;
-      shakeHint.textContent = msg.already ? '你已经摇过了' : '名次以服务器收到顺序为准';
+      if (navigator.vibrate) navigator.vibrate(30);
+      updateShakeUi();
       show(panelShake);
       return;
     }
@@ -352,13 +389,16 @@
 
     if (msg.type === 'result') {
       pendingPersonalResult = msg.prize
-        ? `你的结果：${msg.prize}${msg.rank ? ` · 全场第 ${msg.rank} 名` : ''}`
+        ? `你的结果：${msg.prize}${msg.rank ? ` · 全场第 ${msg.rank} 名` : ''}${
+            msg.shakeCount != null ? ` · 摇了 ${msg.shakeCount} 次` : ''
+          }`
         : '本轮未中奖';
       resultPrize.textContent = msg.prize || '未中奖';
-      resultRank.textContent = msg.rank ? `全场第 ${msg.rank} 名` : '本轮未成功摇到';
+      resultRank.textContent = msg.rank
+        ? `全场第 ${msg.rank} 名${msg.shakeCount != null ? ` · 摇了 ${msg.shakeCount} 次` : ''}`
+        : '本轮未成功摇到';
       resultName.textContent = msg.nickname ? `昵称：${msg.nickname}` : '';
       phase = 'done';
-      // 若名单页已显示，只更新个人提示；否则切到个人结果页
       if (!mRollFinal.classList.contains('hidden') && !panelReveal.classList.contains('hidden')) {
         mMyResultHint.textContent = pendingPersonalResult;
       } else if (panelReveal.classList.contains('hidden')) {
@@ -368,7 +408,7 @@
   }
 
   function fireShake() {
-    if (phase !== 'open' || shaken) return;
+    if (phase !== 'open') return;
     const now = Date.now();
     if (now - lastShakeFire < SHAKE_COOLDOWN_MS) return;
     lastShakeFire = now;
@@ -430,21 +470,81 @@
     }
   }
 
-  btnJoin.addEventListener('click', () => {
-    const nickname = nicknameInput.value.trim();
+  function doJoin(nickname) {
+    const name = String(nickname || '').trim();
     if (!roomId) {
       setJoinError('缺少房间号，请重新扫描大屏二维码');
       return;
     }
-    if (!nickname) {
-      setJoinError('请填写昵称');
+    if (!name) {
+      setJoinError('请填写微信昵称');
       return;
     }
     setJoinError('连接中…');
     connect(() => {
-      send({ type: 'join_player', roomId, nickname });
+      send({
+        type: 'join_player',
+        roomId,
+        nickname: name,
+        openId: wxOpenId,
+        fromWechat,
+      });
     });
-  });
+  }
+
+  function startWxOAuth() {
+    if (!roomId) {
+      setJoinError('缺少房间号，请重新扫描大屏二维码');
+      return;
+    }
+    location.href = `/api/wechat/oauth?room=${encodeURIComponent(roomId)}`;
+  }
+
+  async function setupWechatJoin() {
+    const wxNick = params.get('wx_nick') || '';
+    const wxError = params.get('wx_error') || '';
+
+    if (wxError) {
+      setJoinError(wxError);
+    }
+
+    try {
+      const res = await fetch('/api/wechat/config');
+      const cfg = await res.json();
+      wechatEnabled = !!cfg.enabled;
+    } catch {
+      wechatEnabled = false;
+    }
+
+    if (wxNick && wxOpenId) {
+      fromWechat = true;
+      nicknameInput.value = wxNick;
+      joinTitle.textContent = '微信昵称已就绪';
+      joinHint.textContent = `将使用微信昵称「${wxNick}」入场`;
+      if (nicknameField) nicknameField.classList.add('hidden');
+      btnJoin.textContent = '确认进入会场';
+      btnWxAuth.classList.add('hidden');
+      // 微信内授权回来后自动入场
+      if (isWeChatBrowser()) {
+        doJoin(wxNick);
+      }
+      return;
+    }
+
+    if (wechatEnabled && isWeChatBrowser()) {
+      joinTitle.textContent = '微信一键入场';
+      joinHint.textContent = '授权后自动使用你的微信昵称';
+      btnWxAuth.classList.remove('hidden');
+      btnJoin.textContent = '手动填写昵称进入';
+      // 微信内且已配置：可直接跳转授权
+      btnWxAuth.focus();
+    } else if (isWeChatBrowser()) {
+      joinHint.textContent = '请填写与微信一致的昵称（未配置公众号自动授权）';
+    }
+  }
+
+  btnJoin.addEventListener('click', () => doJoin(nicknameInput.value));
+  btnWxAuth.addEventListener('click', startWxOAuth);
 
   nicknameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') btnJoin.click();
@@ -456,4 +556,6 @@
   if (!roomId) {
     setJoinError('请用手机扫描大屏二维码进入');
   }
+
+  setupWechatJoin();
 })();

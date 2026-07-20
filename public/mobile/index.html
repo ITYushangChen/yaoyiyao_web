@@ -19,14 +19,15 @@
     </header>
 
     <section class="panel" id="panelJoin">
-      <h2>填写昵称入场</h2>
-      <p class="hint">昵称将显示在大屏中奖名单上</p>
-      <label class="field">
-        <span>昵称</span>
-        <input id="nickname" maxlength="16" placeholder="例如：小明" autocomplete="nickname" />
+      <h2 id="joinTitle">填写微信昵称入场</h2>
+      <p class="hint" id="joinHint">昵称将显示在大屏中奖名单上；微信内打开可自动获取</p>
+      <label class="field" id="nicknameField">
+        <span>微信昵称</span>
+        <input id="nickname" maxlength="32" placeholder="填写你的微信昵称" autocomplete="nickname" />
       </label>
       <p class="room-line">房间：<code id="roomLabel">—</code></p>
       <button class="btn btn-primary btn-block" id="btnJoin" type="button">进入会场</button>
+      <button class="btn btn-accent btn-block hidden" id="btnWxAuth" type="button">用微信昵称一键入场</button>
       <p class="msg" id="joinMsg"></p>
     </section>
 
@@ -47,7 +48,8 @@
         <div class="orb-core">摇</div>
       </div>
       <h2 id="shakeTitle">用力摇手机</h2>
-      <p class="hint" id="shakeHint">第一次有效摇动将决定你的名次</p>
+      <p class="hint" id="shakeHint">摇得越多排名越高，冲刺前十！</p>
+      <p class="shake-count-line" id="shakeCountLine">已摇 <strong id="myShakeCount">0</strong> 次</p>
       <button class="btn btn-ghost btn-block" id="btnManualShake" type="button">点这里模拟摇一摇</button>
     </section>
 
@@ -60,10 +62,8 @@
           <p class="m-roll-label" id="mRollLabel">预备…</p>
         </div>
         <div class="m-roll-bottom hidden" id="mRollBottom">
-          <p class="m-roll-names-label" id="mRollNamesLabel">参与者名单滚动中</p>
-          <div class="m-roll-slot" id="mRollSlot">
-            <span class="m-roll-name" id="mRollName">—</span>
-          </div>
+          <p class="m-roll-names-label" id="mRollNamesLabel">摇动实力榜 · Top 10</p>
+          <div class="m-roll-chart" id="mRollChart"></div>
         </div>
       </div>
       <div class="m-roll-final hidden" id="mRollFinal">
