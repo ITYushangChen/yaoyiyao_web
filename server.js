@@ -1,13 +1,20 @@
 ﻿const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { upgrade } = require('./lib/ws');
 const { RoomManager } = require('./lib/room');
 const { getPrizeConfig, getLanSettings, setLanUrl, getScreenSettings } = require('./lib/db');
+const { ensureCerts } = require('./lib/certs');
 
 const PORT = Number(process.env.PORT) || 8780;
+const HTTPS_PORT = Number(process.env.HTTPS_PORT) || PORT + 1;
+// 仅点按玩法：扫码用 HTTP，无需证书警告。若要恢复真摇，改为 true
+const ENABLE_HTTPS_FOR_SHAKE = false;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const rooms = new RoomManager();
+
+let httpsReady = false;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -24,18 +31,27 @@ const MIME = {
 };
 
 function getAccessInfo() {
-  const lan = getLanSettings(PORT);
+  // 点按模式走 HTTP；真摇模式才推 HTTPS（传感器需要安全上下文）
+  const useHttps = ENABLE_HTTPS_FOR_SHAKE && httpsReady;
+  const lan = useHttps
+    ? getLanSettings(HTTPS_PORT, { protocol: 'https', forceHttps: true })
+    : getLanSettings(PORT, { protocol: 'http', forceHttps: false });
   return {
     mode: 'lan',
     port: PORT,
+    httpsPort: useHttps ? HTTPS_PORT : null,
     baseUrl: lan.baseUrl || null,
     lanUrls: lan.lanUrls,
     source: lan.source,
     usable: lan.usable,
+    httpsEnabled: useHttps,
+    tapOnly: !ENABLE_HTTPS_FOR_SHAKE,
     config: getPrizeConfig(),
     screenSettings: getScreenSettings(),
     hint: lan.usable
-      ? `局域网地址：${lan.baseUrl}（手机需连接同一 WiFi）`
+      ? useHttps
+        ? `手机请用 HTTPS 扫码：${lan.baseUrl}（首次需点「继续访问」）`
+        : `手机扫码：${lan.baseUrl}（点按计数，HTTP）`
       : '未检测到局域网 IP，请手动填写本机局域网地址。',
   };
 }
@@ -74,7 +90,8 @@ function serveStatic(req, res) {
   if (urlPath === '/preview') urlPath = '/preview/index.html';
 
   const filePath = path.normalize(path.join(PUBLIC_DIR, urlPath));
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  const publicRoot = path.normalize(PUBLIC_DIR + path.sep);
+  if (filePath !== path.normalize(PUBLIC_DIR) && !filePath.startsWith(publicRoot)) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
@@ -105,13 +122,16 @@ function handleHostAction(room, action) {
 }
 
 function lanPayload() {
-  const lan = getLanSettings(PORT);
+  const info = getAccessInfo();
   return {
     mode: 'lan',
-    baseUrl: lan.baseUrl || null,
-    lanUrls: lan.lanUrls,
-    usable: lan.usable,
-    source: lan.source,
+    baseUrl: info.baseUrl || null,
+    lanUrls: info.lanUrls,
+    usable: info.usable,
+    source: info.source,
+    httpsEnabled: info.httpsEnabled,
+    httpsPort: info.httpsPort,
+    tapOnly: info.tapOnly,
   };
 }
 
@@ -185,11 +205,16 @@ function onSocket(ws) {
   };
 }
 
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const urlPath = (req.url || '/').split('?')[0];
 
   if (urlPath === '/api/health') {
-    sendJson(res, 200, { ok: true, mode: 'lan' });
+    sendJson(res, 200, {
+      ok: true,
+      mode: 'lan',
+      httpsEnabled: httpsReady,
+      httpsPort: httpsReady ? HTTPS_PORT : null,
+    });
     return;
   }
 
@@ -255,27 +280,55 @@ const server = http.createServer(async (req, res) => {
   }
 
   serveStatic(req, res);
-});
+}
 
-server.on('upgrade', (req, socket, head) => {
-  if ((req.url || '').split('?')[0] !== '/ws') {
-    socket.destroy();
-    return;
-  }
-  upgrade(req, socket, head, onSocket);
+function attachUpgrade(server) {
+  server.on('upgrade', (req, socket, head) => {
+    if ((req.url || '').split('?')[0] !== '/ws') {
+      socket.destroy();
+      return;
+    }
+    upgrade(req, socket, head, onSocket);
+  });
+}
+
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch(() => {
+    res.writeHead(500);
+    res.end('Internal Error');
+  });
 });
+attachUpgrade(server);
+
+const certs = ENABLE_HTTPS_FOR_SHAKE ? ensureCerts() : { ok: false };
+let httpsServer = null;
+if (certs.ok) {
+  httpsReady = true;
+  httpsServer = https.createServer({ key: certs.key, cert: certs.cert }, (req, res) => {
+    handleRequest(req, res).catch(() => {
+      res.writeHead(500);
+      res.end('Internal Error');
+    });
+  });
+  attachUpgrade(httpsServer);
+}
 
 server.listen(PORT, '0.0.0.0', () => {
-  const lan = getLanSettings(PORT);
+  const access = getAccessInfo();
   console.log('');
   console.log('摇一摇抽奖服务已启动（局域网模式）');
-  console.log(`  本机大屏: http://127.0.0.1:${PORT}/screen`);
-  if (lan.lanUrls.length) {
-    for (const base of lan.lanUrls) {
-      console.log(`  局域网:   ${base}/screen`);
+  console.log(`  本机大屏(HTTP): http://127.0.0.1:${PORT}/screen`);
+  if (access.httpsEnabled) {
+    console.log(`  手机扫码(HTTPS): 端口 ${HTTPS_PORT}（传感器需要 https）`);
+    console.log('  手机首次打开会提示证书不安全 → 点「高级/继续访问」即可');
+  } else {
+    console.log('  玩法：点按计数（HTTP，无证书警告）');
+  }
+  if (access.lanUrls && access.lanUrls.length) {
+    for (const base of access.lanUrls) {
       console.log(`  手机页:   ${base}/m`);
     }
-    console.log(`  二维码将使用: ${lan.baseUrl}`);
+    console.log(`  二维码将使用: ${access.baseUrl}`);
   } else {
     console.log('  未自动检测到局域网 IP，请在大屏手动填写');
   }
@@ -283,3 +336,9 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  奖项配置: data/config.json`);
   console.log('');
 });
+
+if (httpsServer) {
+  httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+    console.log(`  HTTPS 已监听: 0.0.0.0:${HTTPS_PORT}`);
+  });
+}

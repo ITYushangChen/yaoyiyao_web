@@ -8,6 +8,12 @@
   const stageQr = $('stageQr');
   const stageIdle = $('stageIdle');
   const stageRoll = $('stageRoll');
+  const liveBoard = $('liveBoard');
+  const liveBoardList = $('liveBoardList');
+  const liveBoardEmpty = $('liveBoardEmpty');
+  const roundTimer = $('roundTimer');
+  const roundTimerNum = $('roundTimerNum');
+  const roundTimerLabel = $('roundTimerLabel');
   const stageTitle = $('stageTitle');
   const stageDesc = $('stageDesc');
   const joinedCloud = $('joinedCloud');
@@ -32,7 +38,6 @@
   const btnReset = $('btnReset');
 
   let ws = null;
-  let roomId = null;
   let mobileUrl = '';
   let baseUrl = '';
   let lanReady = false;
@@ -44,10 +49,19 @@
   let musicUnlocked = false;
   let countdownTimer = null;
   let introTimer = null;
+  let lastWinners = null;
+  let lastPrizes = null;
+  let roundEndsAt = null;
+  let clockOffset = 0; // serverNow - Date.now()
+  let urgencySeconds = 5;
+  let roundTickTimer = null;
+  let lastShownLeft = null;
 
   const params = new URLSearchParams(location.search);
   const paramBase = (params.get('lan') || params.get('base') || '').replace(/\/$/, '');
   const LS_KEY = 'yaoyiyao_lan_url';
+  const ROOM_KEY = 'yaoyiyao_room_id';
+  let roomId = sessionStorage.getItem(ROOM_KEY) || null;
 
   const PHASE_TEXT = {
     waiting: '等待开始',
@@ -109,19 +123,83 @@
     }
   }
 
-  function pickBestBase(fromServer, urls) {
+  function pickBestBase(fromServer, urls, preferHttp) {
+    // 点按模式禁止沿用旧的 https 缓存（8781 已关会导致手机「网络出错」）
+    const ok = (raw) => {
+      const n = normalizeBaseUrl(raw);
+      if (!isUsableLanUrl(n)) return '';
+      if (preferHttp) {
+        try {
+          if (new URL(n).protocol === 'https:') return '';
+        } catch {
+          return '';
+        }
+      }
+      return n;
+    };
     const candidates = [
       paramBase,
-      localStorage.getItem(LS_KEY) || '',
+      !isLoopbackHost(location.hostname) ? location.origin : '',
       fromServer || '',
+      localStorage.getItem(LS_KEY) || '',
       (urls && urls[0]) || '',
     ];
-    if (!isLoopbackHost(location.hostname)) candidates.unshift(location.origin);
     for (const c of candidates) {
-      const n = normalizeBaseUrl(c);
-      if (isUsableLanUrl(n)) return n;
+      const n = ok(c);
+      if (n) return n;
     }
-    return normalizeBaseUrl(fromServer || (urls && urls[0]) || '') || '';
+    return ok(fromServer) || ok((urls && urls[0]) || '') || '';
+  }
+
+  function prizesFromState(state) {
+    const c = state.config || {};
+    const board = state.prizeBoard || {};
+    return {
+      first: c.firstPrizeName || board.first?.name || '一等奖',
+      second: c.secondPrizeName || board.second?.name || '二等奖',
+      third: c.thirdPrizeName || board.third?.name || '三等奖',
+    };
+  }
+
+  function applyLanFromServer(msg) {
+    const preferHttp = msg.tapOnly || msg.httpsEnabled === false;
+    baseUrl = pickBestBase(msg.baseUrl, msg.lanUrls, preferHttp);
+    lanReady = isUsableLanUrl(baseUrl);
+    stageQr.classList.toggle('is-blocked', !lanReady);
+    qrTip.textContent = lanReady ? '手机扫码加入本场' : '请与手机连接同一 WiFi 后刷新本页';
+    if (lanReady) {
+      localStorage.setItem(LS_KEY, baseUrl);
+      refreshQr();
+    } else if (preferHttp) {
+      localStorage.removeItem(LS_KEY);
+    }
+    updateButtons(currentPhase);
+  }
+
+  function showDoneBoard(state) {
+    const winners = state.winners || lastWinners;
+    const prizes = lastPrizes || prizesFromState(state);
+    if (!winners) {
+      showIdle(state);
+      return;
+    }
+    lastWinners = winners;
+    lastPrizes = prizes;
+    stageQr.classList.add('hidden');
+    stageIdle.classList.add('hidden');
+    if (liveBoard) liveBoard.classList.add('hidden');
+    if (roundTimer) roundTimer.classList.add('hidden');
+    stageRoll.classList.remove('hidden');
+    if (rollLive) {
+      rollLive.classList.add('hidden');
+      rollLive.classList.remove('is-intro-only');
+    }
+    if (rollHalfBottom) rollHalfBottom.classList.add('hidden');
+    rollFinal.classList.remove('hidden');
+    renderAllWinners(winners, prizes);
+    updateLayout('done');
+    applyBackground('done');
+    playMusic('done');
   }
 
   function applyBackground(mode) {
@@ -183,21 +261,81 @@
 
     const showQr = phase === 'waiting' || phase === 'open' || phase === 'locked';
     stageQr.classList.toggle('hidden', !showQr);
+    if (liveBoard) {
+      liveBoard.classList.toggle('hidden', !(phase === 'open' || phase === 'locked'));
+    }
+    if (roundTimer) {
+      roundTimer.classList.toggle('hidden', phase !== 'open');
+    }
     if (showQr && mobileUrl) {
       renderQrInto('qrBox', mobileUrl, qrSizeForPhase(phase === 'locked' ? 'open' : phase));
     }
   }
 
+  let hasShakers = false;
+
   function updateButtons(phase) {
     currentPhase = phase;
-    const canCountdown =
-      (phase === 'open' || phase === 'locked') && !revealBusy && !!nextRevealTier;
+    const canEarly = phase === 'open' && !revealBusy && !!roundEndsAt;
     btnStart.disabled = !(phase === 'waiting' || phase === 'done') || !lanReady;
-    btnCountdown.disabled = !canCountdown;
-    btnCountdown.textContent = '开始倒计时';
+    btnCountdown.classList.toggle('hidden', !canEarly);
+    btnCountdown.disabled = !canEarly;
+    btnCountdown.textContent = '提前开奖';
     btnMusic.classList.toggle('hidden', phase !== 'done');
     btnStart.textContent = phase === 'done' ? '再来一轮' : '开始摇一摇';
     updateLayout(phase);
+  }
+
+  function stopRoundTick() {
+    clearInterval(roundTickTimer);
+    roundTickTimer = null;
+    lastShownLeft = null;
+  }
+
+  function paintRoundTimer(left) {
+    if (!roundTimer || !roundTimerNum) return;
+    roundTimerNum.textContent = String(Math.max(0, left));
+    const urgent = left > 0 && left <= urgencySeconds;
+    roundTimer.classList.toggle('is-urgent', urgent);
+    if (urgent) {
+      const t = (urgencySeconds - left) / Math.max(1, urgencySeconds - 1);
+      const rem = 5.5 + t * 5.5;
+      roundTimerNum.style.fontSize = `clamp(${rem * 0.55}rem, ${8 + t * 8}vw, ${rem}rem)`;
+      if (roundTimerLabel) roundTimerLabel.textContent = left <= 3 ? '即将开奖！' : '秒后开奖';
+    } else {
+      roundTimerNum.style.fontSize = '';
+      if (roundTimerLabel) roundTimerLabel.textContent = '秒后开奖';
+    }
+  }
+
+  function syncRoundTimer(msg) {
+    if (msg.serverNow) clockOffset = msg.serverNow - Date.now();
+    if (msg.urgencySeconds) urgencySeconds = msg.urgencySeconds;
+    if (msg.roundEndsAt) {
+      roundEndsAt = msg.roundEndsAt;
+      startRoundTick();
+    } else {
+      roundEndsAt = null;
+      stopRoundTick();
+      if (roundTimer) roundTimer.classList.add('hidden');
+    }
+  }
+
+  function startRoundTick() {
+    stopRoundTick();
+    if (!roundEndsAt) return;
+    const tick = () => {
+      const now = Date.now() + clockOffset;
+      const left = Math.max(0, Math.ceil((roundEndsAt - now) / 1000));
+      if (left !== lastShownLeft) {
+        lastShownLeft = left;
+        paintRoundTimer(left);
+      }
+      if (roundTimer && currentPhase === 'open') roundTimer.classList.remove('hidden');
+      if (left <= 0) stopRoundTick();
+    };
+    tick();
+    roundTickTimer = setInterval(tick, 200);
   }
 
   function renderQrInto(elId, text, size) {
@@ -225,18 +363,6 @@
     setStatus(`房间 ${roomId} · 扫码已就绪`);
   }
 
-  function applyLanFromServer(msg) {
-    baseUrl = pickBestBase(msg.baseUrl, msg.lanUrls);
-    lanReady = isUsableLanUrl(baseUrl);
-    stageQr.classList.toggle('is-blocked', !lanReady);
-    qrTip.textContent = lanReady ? '手机扫码加入本场' : '请与手机连接同一 WiFi 后刷新本页';
-    if (lanReady) {
-      localStorage.setItem(LS_KEY, baseUrl);
-      refreshQr();
-    }
-    updateButtons(currentPhase);
-  }
-
   function renderJoinedCloud(names) {
     joinedCloud.innerHTML = '';
     (names || []).forEach((name, i) => {
@@ -244,6 +370,40 @@
       span.textContent = name;
       span.style.animationDelay = `${Math.min(i, 8) * 40}ms`;
       joinedCloud.appendChild(span);
+    });
+  }
+
+  function renderLiveBoard(list) {
+    if (!liveBoardList) return;
+    const rows = (list || []).slice(0, 5);
+    const max = Math.max(...rows.map((r) => Number(r.shakeCount) || 0), 1);
+    liveBoardList.innerHTML = rows
+      .map((r, i) => {
+        const count = Number(r.shakeCount) || 0;
+        const pct = Math.max(8, Math.round((count / max) * 100));
+        const rank = r.rank || i + 1;
+        return `
+      <div class="live-row live-rank-${rank}" data-rank="${rank}">
+        <div class="live-medal" aria-hidden="true">${rank}</div>
+        <div class="live-row-body">
+          <div class="live-row-head">
+            <span class="live-row-name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
+            <span class="live-row-count"><b>${count}</b><small>次</small></span>
+          </div>
+          <div class="live-bar-track">
+            <div class="live-bar-fill" style="--bar:${pct}%"></div>
+          </div>
+        </div>
+      </div>`;
+      })
+      .join('');
+    if (liveBoardEmpty) {
+      liveBoardEmpty.classList.toggle('hidden', rows.length > 0);
+    }
+    requestAnimationFrame(() => {
+      liveBoardList.querySelectorAll('.live-bar-fill').forEach((el) => {
+        el.style.width = getComputedStyle(el).getPropertyValue('--bar');
+      });
     });
   }
 
@@ -258,6 +418,8 @@
   function showRollView() {
     stageQr.classList.add('hidden');
     stageIdle.classList.add('hidden');
+    if (liveBoard) liveBoard.classList.add('hidden');
+    if (roundTimer) roundTimer.classList.add('hidden');
     stageRoll.classList.remove('hidden');
     if (rollLive) {
       rollLive.classList.remove('hidden');
@@ -318,8 +480,8 @@
 
   function renderTopChart(list) {
     if (!rollChart) return;
-    const rows = (list || []).slice(0, 10);
-    rollNamesLabel.textContent = '摇动实力榜 · Top 10';
+    const rows = (list || []).slice(0, 5);
+    rollNamesLabel.textContent = '摇动实力榜 · Top 5';
     if (!rows.length) {
       rollChart.innerHTML = '<p style="color:var(--muted);margin:0">暂无摇动数据</p>';
       return;
@@ -437,17 +599,28 @@
     if (state.phase === 'waiting' || state.phase === 'open' || state.phase === 'locked') {
       stageIdle.classList.add('hidden');
       stageQr.classList.remove('hidden');
+      if (liveBoard) {
+        liveBoard.classList.toggle('hidden', state.phase === 'waiting');
+      }
+      if (roundTimer) {
+        roundTimer.classList.toggle('hidden', state.phase !== 'open');
+      }
+      if (state.phase === 'open' || state.phase === 'locked') {
+        renderLiveBoard(state.topShakers || state.participants || []);
+      }
       if (state.phase === 'waiting') {
         qrTip.textContent = lanReady ? '手机扫码加入本场' : '网络未就绪';
       } else if (state.phase === 'open') {
-        qrTip.textContent = '请大力摇一摇！仍可扫码入场';
+        qrTip.textContent = '倒计时中 · 请大力摇一摇！';
       } else {
-        qrTip.textContent = '已锁定，点击「开始倒计时」揭晓';
+        qrTip.textContent = '已锁定';
       }
       return;
     }
 
     stageQr.classList.add('hidden');
+    if (liveBoard) liveBoard.classList.add('hidden');
+    if (roundTimer) roundTimer.classList.add('hidden');
     stageIdle.classList.remove('hidden');
 
     if (state.phase === 'revealing' && !revealBusy) {
@@ -465,11 +638,45 @@
   function applyState(state) {
     phasePill.textContent = PHASE_TEXT[state.phase] || state.phase;
     joinedCount.textContent = state.participantCount ?? 0;
-    shakenCount.textContent = state.shakenCount ?? 0;
+    shakenCount.textContent =
+      state.totalShakes != null ? state.totalShakes : state.shakenCount ?? 0;
+    hasShakers = (state.shakenCount || 0) > 0 || (state.totalShakes || 0) > 0;
     revealBusy = !!state.revealBusy;
     nextRevealTier = state.nextRevealTier || null;
+
+    if (state.phase === 'open' && state.roundEndsAt) {
+      syncRoundTimer(state);
+    } else if (state.phase !== 'open') {
+      roundEndsAt = null;
+      stopRoundTick();
+    }
+
     updateButtons(state.phase);
+
+    if (state.phase === 'open' || state.phase === 'locked') {
+      renderLiveBoard(state.topShakers || state.participants || []);
+    }
+
+    if (state.phase === 'revealing' && (revealBusy || !stageRoll.classList.contains('hidden'))) {
+      return;
+    }
+    if (state.phase === 'done') {
+      if (state.winners) lastWinners = state.winners;
+      showDoneBoard(state);
+      return;
+    }
     if (!revealBusy) showIdle(state);
+  }
+
+  function persistRoom(id) {
+    roomId = id || null;
+    if (roomId) sessionStorage.setItem(ROOM_KEY, roomId);
+    else sessionStorage.removeItem(ROOM_KEY);
+  }
+
+  function createOrJoinScreen() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify(roomId ? { type: 'join_screen', roomId } : { type: 'create_screen' }));
   }
 
   function connect() {
@@ -477,7 +684,7 @@
     ws = new WebSocket(wsUrl());
     ws.addEventListener('open', () => {
       setStatus('已连接');
-      ws.send(JSON.stringify(roomId ? { type: 'join_screen', roomId } : { type: 'create_screen' }));
+      createOrJoinScreen();
     });
     ws.addEventListener('message', (ev) => {
       let msg;
@@ -488,10 +695,15 @@
       }
       if (msg.type === 'error') {
         setStatus(msg.message || '出错了');
+        // 刷新后房间已失效：清掉缓存并新建
+        if (roomId && /房间不存在/.test(msg.message || '')) {
+          persistRoom(null);
+          createOrJoinScreen();
+        }
         return;
       }
       if (msg.type === 'screen_ready') {
-        roomId = msg.roomId;
+        persistRoom(msg.roomId);
         if (msg.screenSettings) screenSettings = msg.screenSettings;
         applyLanFromServer(msg);
         applyBackground('default');
@@ -505,17 +717,46 @@
         applyState(msg);
         return;
       }
+      if (msg.type === 'round_timer') {
+        syncRoundTimer(msg);
+        phasePill.textContent = PHASE_TEXT.open;
+        currentPhase = 'open';
+        updateButtons('open');
+        setStatus('倒计时开始 · 摇起来！');
+        return;
+      }
+      if (msg.type === 'round_end') {
+        stopRoundTick();
+        roundEndsAt = null;
+        if (msg.screenSettings) screenSettings = msg.screenSettings;
+        if (msg.winners) lastWinners = msg.winners;
+        if (msg.prizes) lastPrizes = msg.prizes;
+        phasePill.textContent = PHASE_TEXT.done;
+        revealBusy = false;
+        showDoneBoard({
+          phase: 'done',
+          winners: msg.winners || lastWinners,
+          config: msg.config || {},
+        });
+        btnMusic.classList.remove('hidden');
+        updateButtons('done');
+        setStatus('时间到 · 开奖！');
+        return;
+      }
       if (msg.type === 'reveal_roll') {
         if (msg.screenSettings) screenSettings = msg.screenSettings;
+        if (msg.winners) lastWinners = msg.winners;
+        if (msg.prizes) lastPrizes = msg.prizes;
         phasePill.textContent = PHASE_TEXT.revealing;
         startRollAnimation(msg);
         return;
       }
       if (msg.type === 'all_revealed') {
         if (msg.screenSettings) screenSettings = msg.screenSettings;
+        if (msg.winners) lastWinners = msg.winners;
         phasePill.textContent = PHASE_TEXT.done;
-        applyBackground('done');
-        playMusic('done');
+        revealBusy = false;
+        showDoneBoard({ phase: 'done', winners: msg.winners || lastWinners, config: {} });
         btnMusic.classList.remove('hidden');
         setStatus('三个奖项已全部揭晓');
       }
@@ -548,11 +789,20 @@
 
   btnStart.addEventListener('click', () => {
     unlockMusic();
+    lastWinners = null;
+    lastPrizes = null;
     host('start');
   });
   btnCountdown.addEventListener('click', () => host('start_countdown'));
   btnReset.addEventListener('click', () => {
-    if (confirm('确定重置本轮？')) host('reset');
+    if (confirm('确定重置本轮？')) {
+      lastWinners = null;
+      lastPrizes = null;
+      stopRollAnimation();
+      stopRoundTick();
+      roundEndsAt = null;
+      host('reset');
+    }
   });
   btnMusic.addEventListener('click', () => {
     unlockMusic();

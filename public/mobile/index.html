@@ -42,14 +42,34 @@
     </section>
 
     <section class="panel hidden" id="panelShake">
-      <div class="shake-orb" id="shakeOrb">
+      <div class="shake-orb" id="shakeOrb" role="button" tabindex="0" aria-label="点击计数">
         <div class="orb-ring"></div>
-        <div class="orb-core">摇</div>
+        <div class="orb-fill" id="orbFill" aria-hidden="true"></div>
+        <div class="orb-core">
+          <span class="orb-count" id="orbCount">0</span>
+          <span class="orb-unit">次</span>
+        </div>
+        <div class="tap-fx" id="tapFx" aria-hidden="true"></div>
       </div>
-      <h2 id="shakeTitle">用力摇手机</h2>
-      <p class="hint" id="shakeHint">摇得越多排名越高，冲刺前十！</p>
-      <p class="shake-count-line" id="shakeCountLine">已摇 <strong id="myShakeCount">0</strong> 次</p>
-      <button class="btn btn-ghost btn-block" id="btnManualShake" type="button">点这里模拟摇一摇</button>
+      <h2 id="shakeTitle">猛点圆球冲分</h2>
+      <p class="hint" id="shakeHint">只看自己的次数 · 点得越多越亮</p>
+      <p class="m-round-timer hidden" id="mRoundTimer" aria-live="polite">
+        <span class="m-round-timer-num" id="mRoundTimerNum">20</span>
+        <span class="m-round-timer-label" id="mRoundTimerLabel">秒后开奖</span>
+      </p>
+      <div class="my-power" id="myPower">
+        <div class="my-power-label-row">
+          <span>能量</span>
+          <strong id="myShakeCount">0</strong>
+        </div>
+        <div class="my-power-track">
+          <div class="my-power-fill" id="myPowerFill"></div>
+        </div>
+        <div class="my-power-pips" id="myPowerPips" aria-hidden="true"></div>
+      </div>
+      <button class="btn btn-accent btn-block hidden" id="btnEnableShake" type="button">开启动作感应</button>
+      <p class="msg" id="sensorMsgShake"></p>
+      <button class="btn btn-primary btn-block" id="btnManualShake" type="button">点一下 +1</button>
     </section>
 
     <section class="panel hidden" id="panelReveal">
@@ -61,7 +81,7 @@
           <p class="m-roll-label" id="mRollLabel">预备…</p>
         </div>
         <div class="m-roll-bottom hidden" id="mRollBottom">
-          <p class="m-roll-names-label" id="mRollNamesLabel">摇动实力榜 · Top 10</p>
+          <p class="m-roll-names-label" id="mRollNamesLabel">实力榜 · Top 5</p>
           <div class="m-roll-chart" id="mRollChart"></div>
         </div>
       </div>

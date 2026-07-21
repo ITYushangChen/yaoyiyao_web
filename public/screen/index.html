@@ -20,7 +20,7 @@
         <div class="brand-mark">摇</div>
         <div>
           <h1>摇一摇抽奖</h1>
-          <p class="sub">扫码入场 · 分段倒计时揭晓</p>
+          <p class="sub">扫码入场 · 点按冲榜 · 20 秒倒计时开奖</p>
         </div>
       </div>
       <div class="meta">
@@ -31,7 +31,7 @@
         </div>
         <div class="stat accent">
           <span id="shakenCount">0</span>
-          <small>已摇</small>
+          <small>摇次</small>
         </div>
       </div>
     </header>
@@ -50,6 +50,17 @@
           <p class="qr-tip" id="qrTip">手机扫码加入本场</p>
         </div>
 
+        <div class="round-timer hidden" id="roundTimer" aria-live="polite">
+          <div class="round-timer-num" id="roundTimerNum">20</div>
+          <p class="round-timer-label" id="roundTimerLabel">秒后开奖</p>
+        </div>
+
+        <div class="live-board hidden" id="liveBoard" aria-live="polite">
+          <p class="live-board-title">实时冲榜 · Top 5</p>
+          <div class="live-board-list" id="liveBoardList"></div>
+          <p class="live-board-empty" id="liveBoardEmpty">等待点击…冲上榜首！</p>
+        </div>
+
         <div class="stage-idle hidden" id="stageIdle">
           <h2 id="stageTitle">等待下一段揭晓</h2>
           <p id="stageDesc">请点击下方「开始倒计时」继续。</p>
@@ -65,7 +76,7 @@
               <p class="roll-countdown-label" id="rollCountdownLabel">预备…</p>
             </div>
             <div class="roll-half roll-half-bottom hidden" id="rollHalfBottom">
-              <p class="roll-names-label" id="rollNamesLabel">摇动实力榜 · Top 10</p>
+              <p class="roll-names-label" id="rollNamesLabel">摇动实力榜 · Top 5</p>
               <div class="roll-chart" id="rollChart" aria-live="polite"></div>
             </div>
           </div>
@@ -79,7 +90,7 @@
 
     <footer class="screen-controls">
       <button class="btn btn-accent" id="btnStart" type="button">开始摇一摇</button>
-      <button class="btn btn-primary" id="btnCountdown" type="button" disabled>开始倒计时</button>
+      <button class="btn btn-primary hidden" id="btnCountdown" type="button" disabled>提前开奖</button>
       <button class="btn btn-ghost hidden" id="btnMusic" type="button">切换庆功音乐</button>
       <button class="btn btn-ghost btn-danger" id="btnReset" type="button">重置本轮</button>
       <span class="status-msg" id="statusMsg"></span>

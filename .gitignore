@@ -1,0 +1,11 @@
+# 本地自签证书（勿提交私钥）
+data/certs/
+
+# 运行时开奖记录（本地活动数据）
+data/results.json
+
+# 系统与编辑器
+.DS_Store
+node_modules/
+.env
+.env.*
