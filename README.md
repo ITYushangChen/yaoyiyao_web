@@ -7,7 +7,52 @@
 - **玩法**：累计摇动次数排序；前 X / Y / G 名分别为一 / 二 / 三等奖；倒计时展示 Top10 柱状图后揭晓
 - **规模**：约 200 人同场
 
-不需要公网域名，不需要 cloudflared。
+本地活动用局域网即可；也可部署到 Railway 公网（见下方）。
+
+---
+
+## 部署到 Railway
+
+本项目是**长连接 Node 服务**（HTTP + WebSocket），适合 Railway 这类常驻进程，不适合 Vercel Serverless。
+
+### 1. 准备仓库
+
+把代码推到 GitHub（例如 `ITYushangChen/yaoyiyao_web`），确保包含：
+
+- `package.json`（`npm start` → `node server.js`）
+- `railway.toml`（已配置启动命令与健康检查）
+
+### 2. 在 Railway 创建服务
+
+1. 打开 [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
+2. 选中本仓库，Root Directory 保持仓库根目录
+3. 部署完成后，进入服务 → **Settings → Networking → Generate Domain**，得到类似：  
+   `https://xxx.up.railway.app`
+
+### 3. 环境变量（重要）
+
+在服务 **Variables** 里设置（二选一即可）：
+
+| 变量 | 示例 | 说明 |
+|------|------|------|
+| `PUBLIC_URL` | `https://xxx.up.railway.app` | **推荐**，二维码与大屏用的公网根地址 |
+| （可不填） | — | 若未设 `PUBLIC_URL`，会自动用 Railway 注入的 `RAILWAY_PUBLIC_DOMAIN` |
+
+`PORT` 不用手动设，Railway 会注入。
+
+设置后 **Redeploy** 一次。
+
+### 4. 使用
+
+1. 电脑浏览器打开：`https://你的域名/screen`
+2. 手机扫大屏二维码（无需同一 WiFi）
+3. 正常主持：开始 → 倒计时 → 开奖
+
+### 注意
+
+- 房间状态在**内存**里：Railway 重启 / 重新部署后房间会清空
+- `data/results.json` 写在容器磁盘上，默认**不持久**；需要留存可挂 Railway Volume 到 `/app/data`
+- 活动现场若 WiFi 不稳，公网部署往往比局域网更稳；若人数很多，留意 Railway 套餐带宽与连接数
 
 ---
 

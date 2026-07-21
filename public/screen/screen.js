@@ -162,11 +162,18 @@
   }
 
   function applyLanFromServer(msg) {
-    const preferHttp = msg.tapOnly || msg.httpsEnabled === false;
+    // 云端（Railway 等）用 https；仅局域网点按模式才拒收 https 旧缓存
+    const preferHttp =
+      msg.preferHttp === true ||
+      (msg.mode === 'lan' && (msg.tapOnly || msg.httpsEnabled === false));
     baseUrl = pickBestBase(msg.baseUrl, msg.lanUrls, preferHttp);
     lanReady = isUsableLanUrl(baseUrl);
     stageQr.classList.toggle('is-blocked', !lanReady);
-    qrTip.textContent = lanReady ? '手机扫码加入本场' : '请与手机连接同一 WiFi 后刷新本页';
+    qrTip.textContent = lanReady
+      ? msg.mode === 'cloud'
+        ? '手机扫码加入本场（公网）'
+        : '手机扫码加入本场'
+      : '请与手机连接同一 WiFi 后刷新本页';
     if (lanReady) {
       localStorage.setItem(LS_KEY, baseUrl);
       refreshQr();

@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { upgrade } = require('./lib/ws');
 const { RoomManager } = require('./lib/room');
-const { getPrizeConfig, getLanSettings, setLanUrl, getScreenSettings } = require('./lib/db');
+const { getPrizeConfig, getLanSettings, setLanUrl, getScreenSettings, normalizeBaseUrl } = require('./lib/db');
 const { ensureCerts } = require('./lib/certs');
 
 const PORT = Number(process.env.PORT) || 8780;
@@ -30,8 +30,39 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
+function resolvePublicBaseUrl() {
+  const fromEnv = normalizeBaseUrl(
+    process.env.PUBLIC_URL || process.env.BASE_URL || process.env.LAN_URL || ''
+  );
+  if (fromEnv) return fromEnv;
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    return normalizeBaseUrl(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+  }
+  return '';
+}
+
 function getAccessInfo() {
-  // 点按模式走 HTTP；真摇模式才推 HTTPS（传感器需要安全上下文）
+  const cloudUrl = resolvePublicBaseUrl();
+  if (cloudUrl) {
+    const isHttps = cloudUrl.startsWith('https:');
+    return {
+      mode: 'cloud',
+      port: PORT,
+      httpsPort: null,
+      baseUrl: cloudUrl,
+      lanUrls: [cloudUrl],
+      source: 'env',
+      usable: true,
+      httpsEnabled: isHttps,
+      tapOnly: !ENABLE_HTTPS_FOR_SHAKE,
+      preferHttp: false,
+      config: getPrizeConfig(),
+      screenSettings: getScreenSettings(),
+      hint: `公网地址：${cloudUrl}（手机可直接扫码，无需同一 WiFi）`,
+    };
+  }
+
+  // 点按模式走 HTTP；真摇模式才推本机 HTTPS
   const useHttps = ENABLE_HTTPS_FOR_SHAKE && httpsReady;
   const lan = useHttps
     ? getLanSettings(HTTPS_PORT, { protocol: 'https', forceHttps: true })
@@ -46,6 +77,7 @@ function getAccessInfo() {
     usable: lan.usable,
     httpsEnabled: useHttps,
     tapOnly: !ENABLE_HTTPS_FOR_SHAKE,
+    preferHttp: !useHttps,
     config: getPrizeConfig(),
     screenSettings: getScreenSettings(),
     hint: lan.usable
@@ -124,7 +156,7 @@ function handleHostAction(room, action) {
 function lanPayload() {
   const info = getAccessInfo();
   return {
-    mode: 'lan',
+    mode: info.mode,
     baseUrl: info.baseUrl || null,
     lanUrls: info.lanUrls,
     usable: info.usable,
@@ -132,6 +164,7 @@ function lanPayload() {
     httpsEnabled: info.httpsEnabled,
     httpsPort: info.httpsPort,
     tapOnly: info.tapOnly,
+    preferHttp: !!info.preferHttp,
   };
 }
 
@@ -209,11 +242,13 @@ async function handleRequest(req, res) {
   const urlPath = (req.url || '/').split('?')[0];
 
   if (urlPath === '/api/health') {
+    const access = getAccessInfo();
     sendJson(res, 200, {
       ok: true,
-      mode: 'lan',
-      httpsEnabled: httpsReady,
-      httpsPort: httpsReady ? HTTPS_PORT : null,
+      mode: access.mode,
+      httpsEnabled: access.httpsEnabled,
+      httpsPort: access.httpsPort,
+      baseUrl: access.baseUrl || null,
     });
     return;
   }
@@ -316,23 +351,31 @@ if (certs.ok) {
 server.listen(PORT, '0.0.0.0', () => {
   const access = getAccessInfo();
   console.log('');
-  console.log('摇一摇抽奖服务已启动（局域网模式）');
-  console.log(`  本机大屏(HTTP): http://127.0.0.1:${PORT}/screen`);
-  if (access.httpsEnabled) {
-    console.log(`  手机扫码(HTTPS): 端口 ${HTTPS_PORT}（传感器需要 https）`);
-    console.log('  手机首次打开会提示证书不安全 → 点「高级/继续访问」即可');
+  if (access.mode === 'cloud') {
+    console.log('摇一摇抽奖服务已启动（公网 / Railway）');
+    console.log(`  大屏: ${access.baseUrl}/screen`);
+    console.log(`  手机: 扫大屏二维码（${access.baseUrl}）`);
   } else {
-    console.log('  玩法：点按计数（HTTP，无证书警告）');
+    console.log('摇一摇抽奖服务已启动（局域网模式）');
+    console.log(`  本机大屏(HTTP): http://127.0.0.1:${PORT}/screen`);
+    if (access.httpsEnabled) {
+      console.log(`  手机扫码(HTTPS): 端口 ${HTTPS_PORT}（传感器需要 https）`);
+      console.log('  手机首次打开会提示证书不安全 → 点「高级/继续访问」即可');
+    } else {
+      console.log('  玩法：点按计数（HTTP，无证书警告）');
+    }
   }
   if (access.lanUrls && access.lanUrls.length) {
     for (const base of access.lanUrls) {
       console.log(`  手机页:   ${base}/m`);
     }
     console.log(`  二维码将使用: ${access.baseUrl}`);
-  } else {
+  } else if (access.mode !== 'cloud') {
     console.log('  未自动检测到局域网 IP，请在大屏手动填写');
   }
-  console.log('  请让手机连接与电脑相同的 WiFi');
+  if (access.mode === 'lan') {
+    console.log('  请让手机连接与电脑相同的 WiFi');
+  }
   console.log(`  奖项配置: data/config.json`);
   console.log('');
 });
