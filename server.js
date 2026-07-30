@@ -35,8 +35,16 @@ function resolvePublicBaseUrl() {
     process.env.PUBLIC_URL || process.env.BASE_URL || process.env.LAN_URL || ''
   );
   if (fromEnv) return fromEnv;
-  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-    return normalizeBaseUrl(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+  const railwayDomain =
+    process.env.RAILWAY_PUBLIC_DOMAIN ||
+    process.env.RAILWAY_STATIC_URL ||
+    '';
+  if (railwayDomain) {
+    const host = String(railwayDomain)
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/$/, '');
+    if (host) return normalizeBaseUrl(`https://${host}`);
   }
   return '';
 }

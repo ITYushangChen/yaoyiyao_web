@@ -123,7 +123,21 @@
     }
   }
 
+  function isPrivateHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    if (isLoopbackHost(host)) return true;
+    if (/^10\.\d+\.\d+\.\d+$/.test(host)) return true;
+    if (/^192\.168\.\d+\.\d+$/.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(host)) return true;
+    return false;
+  }
+
   function pickBestBase(fromServer, urls, preferHttp) {
+    // 公网 https 页（Railway）永远用当前域名，避免被 preferHttp / 内网 IP 带偏
+    if (location.protocol === 'https:' && !isPrivateHost(location.hostname)) {
+      return location.origin;
+    }
+
     // 点按模式禁止沿用旧的 https 缓存（8781 已关会导致手机「网络出错」）
     const ok = (raw) => {
       const n = normalizeBaseUrl(raw);
@@ -162,18 +176,21 @@
   }
 
   function applyLanFromServer(msg) {
+    const onPublicHttps =
+      location.protocol === 'https:' && !isPrivateHost(location.hostname);
     // 云端（Railway 等）用 https；仅局域网点按模式才拒收 https 旧缓存
     const preferHttp =
-      msg.preferHttp === true ||
-      (msg.mode === 'lan' && (msg.tapOnly || msg.httpsEnabled === false));
+      !onPublicHttps &&
+      (msg.preferHttp === true ||
+        (msg.mode === 'lan' && (msg.tapOnly || msg.httpsEnabled === false)));
     baseUrl = pickBestBase(msg.baseUrl, msg.lanUrls, preferHttp);
     lanReady = isUsableLanUrl(baseUrl);
     stageQr.classList.toggle('is-blocked', !lanReady);
     qrTip.textContent = lanReady
-      ? msg.mode === 'cloud'
-        ? '手机扫码加入本场（公网）'
+      ? msg.mode === 'cloud' || onPublicHttps
+        ? '手机扫码加入本场（公网，无需同一 WiFi）'
         : '手机扫码加入本场'
-      : '请与手机连接同一 WiFi 后刷新本页';
+      : '请用公网域名打开大屏，或与手机连接同一 WiFi 后刷新';
     if (lanReady) {
       localStorage.setItem(LS_KEY, baseUrl);
       refreshQr();
