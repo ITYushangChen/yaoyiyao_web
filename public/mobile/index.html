@@ -41,22 +41,29 @@
       <p class="msg" id="sensorMsg"></p>
     </section>
 
-    <section class="panel hidden" id="panelShake">
-      <div class="shake-orb" id="shakeOrb" role="button" tabindex="0" aria-label="点击计数">
-        <div class="orb-ring"></div>
-        <div class="orb-fill" id="orbFill" aria-hidden="true"></div>
-        <div class="orb-core">
-          <span class="orb-count" id="orbCount">0</span>
-          <span class="orb-unit">次</span>
-        </div>
-        <div class="tap-fx" id="tapFx" aria-hidden="true"></div>
-      </div>
-      <h2 id="shakeTitle">猛点圆球冲分</h2>
-      <p class="hint" id="shakeHint">只看自己的次数 · 点得越多越亮</p>
+    <section class="panel panel-shake hidden" id="panelShake">
+      <p class="m-start-cd hidden" id="mStartCd" aria-live="polite">
+        <span class="m-start-cd-num" id="mStartCdNum">3</span>
+        <span class="m-start-cd-label" id="mStartCdLabel">预备…</span>
+      </p>
       <p class="m-round-timer hidden" id="mRoundTimer" aria-live="polite">
         <span class="m-round-timer-num" id="mRoundTimerNum">20</span>
         <span class="m-round-timer-label" id="mRoundTimerLabel">秒后开奖</span>
       </p>
+      <div class="shake-arena" id="shakeArena">
+        <div class="shake-orb is-bounce" id="shakeOrb" role="button" tabindex="0" aria-label="点击计数">
+          <div class="orb-ring"></div>
+          <div class="orb-fill" id="orbFill" aria-hidden="true"></div>
+          <div class="orb-core">
+            <span class="orb-count" id="orbCount">0</span>
+            <span class="orb-unit">次</span>
+          </div>
+          <div class="tap-fx" id="tapFx" aria-hidden="true"></div>
+        </div>
+        <button class="btn btn-primary btn-tap" id="btnManualShake" type="button">点这里 +1</button>
+      </div>
+      <h2 id="shakeTitle">猛点圆球冲分</h2>
+      <p class="hint" id="shakeHint">只看自己的次数 · 点得越多越亮</p>
       <div class="my-power" id="myPower">
         <div class="my-power-label-row">
           <span>能量</span>
@@ -69,24 +76,23 @@
       </div>
       <button class="btn btn-accent btn-block hidden" id="btnEnableShake" type="button">开启动作感应</button>
       <p class="msg" id="sensorMsgShake"></p>
-      <button class="btn btn-primary btn-block" id="btnManualShake" type="button">点一下 +1</button>
     </section>
 
     <section class="panel hidden" id="panelReveal">
       <div class="m-roll-live" id="mRollLive">
         <div class="m-roll-top">
           <p class="m-roll-step" id="mRollStep">即将揭晓</p>
-          <h2 class="m-roll-prize" id="mRollPrize">一 · 二 · 三等奖</h2>
+          <h2 class="m-roll-prize" id="mRollPrize">冲榜进行中</h2>
           <div class="m-roll-countdown" id="mRollCountdown">3</div>
           <p class="m-roll-label" id="mRollLabel">预备…</p>
         </div>
         <div class="m-roll-bottom hidden" id="mRollBottom">
-          <p class="m-roll-names-label" id="mRollNamesLabel">实力榜 · Top 5</p>
+          <p class="m-roll-names-label" id="mRollNamesLabel">实时冲榜 · Top 20</p>
           <div class="m-roll-chart" id="mRollChart"></div>
         </div>
       </div>
       <div class="m-roll-final hidden" id="mRollFinal">
-        <p class="reveal-kicker">恭喜获奖</p>
+        <p class="reveal-kicker">本轮前五名</p>
         <div class="m-winners-all" id="mRollWinners"></div>
         <p class="hint" id="mMyResultHint"></p>
       </div>

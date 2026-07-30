@@ -11,6 +11,7 @@
   const liveBoard = $('liveBoard');
   const liveBoardList = $('liveBoardList');
   const liveBoardEmpty = $('liveBoardEmpty');
+  const liveBoardTitle = $('liveBoardTitle');
   const roundTimer = $('roundTimer');
   const roundTimerNum = $('roundTimerNum');
   const roundTimerLabel = $('roundTimerLabel');
@@ -65,6 +66,7 @@
 
   const PHASE_TEXT = {
     waiting: '等待开始',
+    starting: '即将开始',
     open: '摇动进行中',
     locked: '待揭晓',
     revealing: '揭晓进行中',
@@ -167,12 +169,8 @@
 
   function prizesFromState(state) {
     const c = state.config || {};
-    const board = state.prizeBoard || {};
-    return {
-      first: c.firstPrizeName || board.first?.name || '一等奖',
-      second: c.secondPrizeName || board.second?.name || '二等奖',
-      third: c.thirdPrizeName || board.third?.name || '三等奖',
-    };
+    const n = c.finalTopCount || 5;
+    return { top: `前 ${n} 名` };
   }
 
   function applyLanFromServer(msg) {
@@ -201,14 +199,14 @@
   }
 
   function showDoneBoard(state) {
-    const winners = state.winners || lastWinners;
-    const prizes = lastPrizes || prizesFromState(state);
-    if (!winners) {
-      showIdle(state);
-      return;
-    }
-    lastWinners = winners;
-    lastPrizes = prizes;
+    const finalTop =
+      state.finalTop ||
+      (Array.isArray(state.winners) ? state.winners : null) ||
+      (state.winners && state.winners.top) ||
+      (lastWinners && lastWinners.top) ||
+      [];
+    lastWinners = state.winners || { top: finalTop };
+    lastPrizes = state.prizes || lastPrizes || prizesFromState(state);
     stageQr.classList.add('hidden');
     stageIdle.classList.add('hidden');
     if (liveBoard) liveBoard.classList.add('hidden');
@@ -220,9 +218,10 @@
     }
     if (rollHalfBottom) rollHalfBottom.classList.add('hidden');
     rollFinal.classList.remove('hidden');
-    renderAllWinners(winners, prizes);
+    renderFinalTop(finalTop);
     updateLayout('done');
     applyBackground('done');
+    unlockMusic();
     playMusic('done');
   }
 
@@ -244,26 +243,35 @@
   }
 
   function playMusic(mode) {
-    if (!bgm || !screenSettings || !musicUnlocked) return;
+    if (!bgm || !screenSettings) return;
+    if (!musicUnlocked && mode !== 'done') return;
     const key =
       mode === 'reveal' ? 'musicReveal' : mode === 'done' ? 'musicDone' : 'musicDefault';
     const src = screenSettings[key];
     if (!src) return;
-    if (bgm.getAttribute('src') !== src) bgm.src = src;
-    bgm.play().catch(() => {});
+    if (bgm.getAttribute('src') !== src) {
+      bgm.src = src;
+      bgm.load();
+    }
+    bgm.loop = mode !== 'done';
+    const play = () => bgm.play().catch(() => {});
+    if (bgm.readyState >= 2) play();
+    else bgm.addEventListener('canplay', play, { once: true });
   }
 
   function unlockMusic() {
-    if (musicUnlocked) return;
+    if (musicUnlocked) {
+      // already unlocked — keep current track unless none
+      if (bgm && (!bgm.src || bgm.paused) && currentPhase !== 'done') playMusic('default');
+      return;
+    }
     musicUnlocked = true;
-    playMusic('default');
+    playMusic(currentPhase === 'done' ? 'done' : currentPhase === 'starting' ? 'reveal' : 'default');
   }
 
   function tierLabel(tier) {
-    if (tier === 'first') return '一等奖';
-    if (tier === 'second') return '二等奖';
-    if (tier === 'third') return '三等奖';
-    return '奖项';
+    if (tier === 'top') return '前五名';
+    return '名次';
   }
 
   function qrSizeForPhase(phase) {
@@ -277,14 +285,14 @@
     const modes = ['waiting', 'open', 'locked', 'reveal', 'done'];
     modes.forEach((m) => screenMain.classList.remove(`mode-${m}`));
     let mode = 'waiting';
-    if (phase === 'revealing') mode = 'reveal';
+    if (phase === 'revealing' || phase === 'starting') mode = 'reveal';
     else if (phase === 'done') mode = 'done';
     else if (phase === 'open' || phase === 'locked') mode = 'open';
     else if (phase === 'waiting') mode = 'waiting';
     screenMain.classList.add(`mode-${mode}`);
 
     const showQr = phase === 'waiting' || phase === 'open' || phase === 'locked';
-    stageQr.classList.toggle('hidden', !showQr);
+    stageQr.classList.toggle('hidden', !showQr || phase === 'starting');
     if (liveBoard) {
       liveBoard.classList.toggle('hidden', !(phase === 'open' || phase === 'locked'));
     }
@@ -307,6 +315,7 @@
     btnCountdown.textContent = '提前开奖';
     btnMusic.classList.toggle('hidden', phase !== 'done');
     btnStart.textContent = phase === 'done' ? '再来一轮' : '开始摇一摇';
+    if (phase === 'starting') btnStart.disabled = true;
     updateLayout(phase);
   }
 
@@ -399,7 +408,8 @@
 
   function renderLiveBoard(list) {
     if (!liveBoardList) return;
-    const rows = (list || []).slice(0, 5);
+    const rows = (list || []).slice(0, 20);
+    if (liveBoardTitle) liveBoardTitle.textContent = '实时冲榜 · Top 20';
     const max = Math.max(...rows.map((r) => Number(r.shakeCount) || 0), 1);
     liveBoardList.innerHTML = rows
       .map((r, i) => {
@@ -461,53 +471,51 @@
     host('reveal_tier_done');
   }
 
-  function renderAllWinners(winners, prizes) {
+  function renderFinalTop(list) {
     rollWinners.innerHTML = '';
-    const tiers = [
-      { key: 'first', label: prizes?.first || '一等奖' },
-      { key: 'second', label: prizes?.second || '二等奖' },
-      { key: 'third', label: prizes?.third || '三等奖' },
-    ];
-    let any = false;
-    tiers.forEach((tier) => {
-      const list = (winners && winners[tier.key]) || [];
-      const col = document.createElement('div');
-      col.className = `roll-tier-col roll-tier-${tier.key}`;
-      const title = document.createElement('h3');
-      title.textContent = tier.label;
-      col.appendChild(title);
-      if (!list.length) {
-        const empty = document.createElement('p');
-        empty.className = 'roll-tier-empty';
-        empty.textContent = '暂无';
-        col.appendChild(empty);
-      } else {
-        any = true;
-        list.forEach((w, i) => {
-          const card = document.createElement('div');
-          card.className = 'roll-winner-card';
-          card.style.animationDelay = `${i * 60}ms`;
-          const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
-          card.innerHTML = `
-            <div class="rank">第 ${w.rank} 名${shakes}</div>
-            <div class="name">${escapeHtml(w.nickname)}</div>
-          `;
-          col.appendChild(card);
-        });
-      }
-      rollWinners.appendChild(col);
-    });
-    if (!any) {
-      rollWinners.innerHTML = '<p style="color:var(--muted)">暂无中奖者</p>';
+    const rows = (list || []).slice(0, 5);
+    if (!rows.length) {
+      rollWinners.innerHTML = '<p style="color:var(--muted)">暂无上榜</p>';
+      return;
     }
+    const col = document.createElement('div');
+    col.className = 'roll-tier-col roll-tier-top';
+    const title = document.createElement('h3');
+    title.textContent = '本轮前五名';
+    col.appendChild(title);
+    rows.forEach((w, i) => {
+      const card = document.createElement('div');
+      card.className = `roll-winner-card final-rank-${w.rank || i + 1}`;
+      card.style.animationDelay = `${i * 70}ms`;
+      const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
+      card.innerHTML = `
+        <div class="rank">第 ${w.rank || i + 1} 名${shakes}</div>
+        <div class="name">${escapeHtml(w.nickname)}</div>
+      `;
+      col.appendChild(card);
+    });
+    rollWinners.appendChild(col);
+  }
+
+  function renderAllWinners(winners, prizes) {
+    // 兼容旧结构；新流程走 renderFinalTop
+    if (Array.isArray(winners)) {
+      renderFinalTop(winners);
+      return;
+    }
+    if (winners && winners.top) {
+      renderFinalTop(winners.top);
+      return;
+    }
+    renderFinalTop([]);
   }
 
   function renderTopChart(list) {
     if (!rollChart) return;
-    const rows = (list || []).slice(0, 5);
-    rollNamesLabel.textContent = '摇动实力榜 · Top 5';
+    const rows = (list || []).slice(0, 20);
+    rollNamesLabel.textContent = '实时冲榜 · Top 20';
     if (!rows.length) {
-      rollChart.innerHTML = '<p style="color:var(--muted);margin:0">暂无摇动数据</p>';
+      rollChart.innerHTML = '<p style="color:var(--muted);margin:0">暂无数据</p>';
       return;
     }
     const max = Math.max(...rows.map((r) => Number(r.shakeCount) || 0), 1);
@@ -516,7 +524,7 @@
         const count = Number(r.shakeCount) || 0;
         const pct = Math.max(6, Math.round((count / max) * 100));
         return `
-          <div class="roll-bar-row" style="animation-delay:${i * 45}ms">
+          <div class="roll-bar-row" style="animation-delay:${i * 30}ms">
             <span class="roll-bar-rank">${r.rank || i + 1}</span>
             <span class="roll-bar-name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
             <div class="roll-bar-track"><div class="roll-bar-fill" style="width:${pct}%"></div></div>
@@ -525,7 +533,6 @@
         `;
       })
       .join('');
-    // 触发宽度动画：先置 0 再设回
     requestAnimationFrame(() => {
       rollChart.querySelectorAll('.roll-bar-fill').forEach((el) => {
         const w = el.style.width;
@@ -573,9 +580,7 @@
     if (rollHalfBottom) rollHalfBottom.classList.add('hidden');
 
     rollStep.textContent = '预备开始';
-    rollPrize.textContent = [prizes.first, prizes.second, prizes.third]
-      .filter(Boolean)
-      .join(' · ') || '一 · 二 · 三等奖';
+    rollPrize.textContent = prizes.top || '冲榜揭晓';
     rollCountdownLabel.textContent = '预备…';
     rollCountdown.classList.add('is-intro');
 
@@ -616,7 +621,69 @@
     updateButtons(currentPhase);
   }
 
+  function runStartIntro(payload) {
+    stopRollAnimation();
+    stopRoundTick();
+    if (roundTimer) roundTimer.classList.add('hidden');
+    if (liveBoard) liveBoard.classList.add('hidden');
+    stageQr.classList.add('hidden');
+    stageIdle.classList.add('hidden');
+    stageRoll.classList.remove('hidden');
+    if (rollFinal) rollFinal.classList.add('hidden');
+    if (rollLive) {
+      rollLive.classList.remove('hidden');
+      rollLive.classList.add('is-intro-only');
+    }
+    if (rollHalfBottom) rollHalfBottom.classList.add('hidden');
+
+    const intro = payload.intro && payload.intro.length ? payload.intro : ['3', '2', '1', 'GO!'];
+    const stepMs = payload.introStepMs || 1000;
+    if (payload.serverNow) clockOffset = payload.serverNow - Date.now();
+
+    currentPhase = 'starting';
+    phasePill.textContent = PHASE_TEXT.starting;
+    updateButtons('starting');
+    applyBackground('reveal');
+    setStatus('开场倒计时 · 大屏与手机同步');
+
+    if (rollStep) rollStep.textContent = '预备开始';
+    if (rollPrize) rollPrize.textContent = '马上开摇';
+    if (rollCountdownLabel) rollCountdownLabel.textContent = '预备…';
+    if (rollCountdown) rollCountdown.classList.add('is-intro');
+
+    const openAt = payload.openAt || Date.now() + intro.length * stepMs;
+    const now = Date.now() + clockOffset;
+    const elapsed = Math.max(0, now - (openAt - intro.length * stepMs));
+    let i = Math.min(intro.length - 1, Math.floor(elapsed / stepMs));
+
+    const tick = () => {
+      if (currentPhase !== 'starting') return;
+      if (i >= intro.length) {
+        if (rollCountdownLabel) rollCountdownLabel.textContent = '开始！';
+        return;
+      }
+      const step = intro[i];
+      if (rollCountdown) {
+        rollCountdown.textContent = step;
+        rollCountdown.classList.add('is-intro');
+        rollCountdown.classList.toggle('is-go', String(step).toUpperCase() === 'GO!');
+      }
+      if (rollCountdownLabel) {
+        rollCountdownLabel.textContent =
+          String(step).toUpperCase() === 'GO!' ? '开始！' : '预备…';
+      }
+      i += 1;
+      introTimer = setTimeout(tick, stepMs);
+    };
+    tick();
+  }
+
   function showIdle(state) {
+    if (state.phase === 'starting') {
+      if (state.startIntro) runStartIntro(state.startIntro);
+      return;
+    }
+
     stageRoll.classList.add('hidden');
     applyBackground(state.phase === 'done' ? 'done' : 'default');
 
@@ -681,6 +748,11 @@
       renderLiveBoard(state.topShakers || state.participants || []);
     }
 
+    if (state.phase === 'starting') {
+      if (state.startIntro) runStartIntro(state.startIntro);
+      return;
+    }
+
     if (state.phase === 'revealing' && (revealBusy || !stageRoll.classList.contains('hidden'))) {
       return;
     }
@@ -741,11 +813,28 @@
         applyState(msg);
         return;
       }
+      if (msg.type === 'start_intro') {
+        runStartIntro(msg);
+        unlockMusic();
+        playMusic('reveal');
+        return;
+      }
       if (msg.type === 'round_timer') {
+        stopRollAnimation();
+        if (stageRoll) stageRoll.classList.add('hidden');
+        if (rollLive) {
+          rollLive.classList.remove('is-intro-only');
+          rollLive.classList.add('hidden');
+        }
+        stageQr.classList.remove('hidden');
+        stageIdle.classList.add('hidden');
         syncRoundTimer(msg);
         phasePill.textContent = PHASE_TEXT.open;
         currentPhase = 'open';
         updateButtons('open');
+        applyBackground('default');
+        unlockMusic();
+        playMusic('default');
         setStatus('倒计时开始 · 摇起来！');
         return;
       }
@@ -760,11 +849,13 @@
         showDoneBoard({
           phase: 'done',
           winners: msg.winners || lastWinners,
+          finalTop: msg.finalTop || msg.topShakers || (msg.winners && msg.winners.top) || [],
+          prizes: msg.prizes || lastPrizes,
           config: msg.config || {},
         });
         btnMusic.classList.remove('hidden');
         updateButtons('done');
-        setStatus('时间到 · 开奖！');
+        setStatus('时间到 · 前五名出炉！');
         return;
       }
       if (msg.type === 'reveal_roll') {
@@ -782,7 +873,7 @@
         revealBusy = false;
         showDoneBoard({ phase: 'done', winners: msg.winners || lastWinners, config: {} });
         btnMusic.classList.remove('hidden');
-        setStatus('三个奖项已全部揭晓');
+        setStatus('前五名已揭晓');
       }
     });
     ws.addEventListener('close', () => {

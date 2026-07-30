@@ -2,9 +2,9 @@
   "backgroundDefault": "/assets/bg/stage-bg.jpg",
   "backgroundReveal": "/assets/bg/stage-bg.jpg",
   "backgroundDone": "/assets/bg/stage-bg.jpg",
-  "musicDefault": "",
-  "musicReveal": "",
-  "musicDone": "",
+  "musicDefault": "/assets/audio/waiting.wav",
+  "musicReveal": "/assets/audio/drumroll.wav",
+  "musicDone": "/assets/audio/celebrate.wav",
   "countdownSeconds": 20,
   "urgencySeconds": 5
 }

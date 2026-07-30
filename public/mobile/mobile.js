@@ -34,6 +34,9 @@
   const mRoundTimer = $('mRoundTimer');
   const mRoundTimerNum = $('mRoundTimerNum');
   const mRoundTimerLabel = $('mRoundTimerLabel');
+  const mStartCd = $('mStartCd');
+  const mStartCdNum = $('mStartCdNum');
+  const mStartCdLabel = $('mStartCdLabel');
 
   const mRollLive = $('mRollLive');
   const mRollFinal = $('mRollFinal');
@@ -71,6 +74,8 @@
   let urgencySeconds = 5;
   let roundTickTimer = null;
   let lastShownLeft = null;
+  let startIntroTimer = null;
+  let startIntroOpenAt = null;
   let lastAx = null;
   let lastAy = null;
   let lastAz = null;
@@ -155,40 +160,36 @@
 
   function renderAllWinners(winners, prizes) {
     mRollWinners.innerHTML = '';
-    const tiers = [
-      { key: 'first', label: prizes?.first || '一等奖' },
-      { key: 'second', label: prizes?.second || '二等奖' },
-      { key: 'third', label: prizes?.third || '三等奖' },
-    ];
-    tiers.forEach((tier) => {
-      const list = (winners && winners[tier.key]) || [];
-      const col = document.createElement('div');
-      col.className = 'm-tier-col';
-      const title = document.createElement('h3');
-      title.textContent = tier.label;
-      col.appendChild(title);
-      if (!list.length) {
-        const empty = document.createElement('p');
-        empty.className = 'm-tier-empty';
-        empty.textContent = '暂无';
-        col.appendChild(empty);
-      } else {
-        list.forEach((w) => {
-          const row = document.createElement('div');
-          row.className = 'person';
-          const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
-          row.innerHTML = `<strong>第 ${w.rank} 名</strong> · ${escapeHtml(w.nickname)}${shakes}`;
-          col.appendChild(row);
-        });
-      }
-      mRollWinners.appendChild(col);
-    });
+    const list = Array.isArray(winners)
+      ? winners
+      : (winners && (winners.top || winners.first)) || [];
+    const rows = (list || []).slice(0, 5);
+    const col = document.createElement('div');
+    col.className = 'm-tier-col';
+    const title = document.createElement('h3');
+    title.textContent = prizes?.top || '本轮前五名';
+    col.appendChild(title);
+    if (!rows.length) {
+      const empty = document.createElement('p');
+      empty.className = 'm-tier-empty';
+      empty.textContent = '暂无上榜';
+      col.appendChild(empty);
+    } else {
+      rows.forEach((w) => {
+        const row = document.createElement('div');
+        row.className = 'person';
+        const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
+        row.innerHTML = `<strong>第 ${w.rank} 名</strong> · ${escapeHtml(w.nickname)}${shakes}`;
+        col.appendChild(row);
+      });
+    }
+    mRollWinners.appendChild(col);
   }
 
   function renderTopChart(list) {
     if (!mRollChart) return;
-    const rows = (list || []).slice(0, 5);
-    mRollNamesLabel.textContent = '实力榜 · Top 5';
+    const rows = (list || []).slice(0, 20);
+    mRollNamesLabel.textContent = '实时冲榜 · Top 20';
     if (!rows.length) {
       mRollChart.innerHTML = '<p class="m-tier-empty">暂无数据</p>';
       return;
@@ -250,8 +251,7 @@
     const topShakers = payload.topShakers || [];
 
     mRollStep.textContent = '预备开始';
-    mRollPrize.textContent =
-      [prizes.first, prizes.second, prizes.third].filter(Boolean).join(' · ') || '一 · 二 · 三等奖';
+    mRollPrize.textContent = '冲榜进行中';
     mRollLabel.textContent = '预备…';
     mRollCountdown.classList.add('is-intro');
 
@@ -320,9 +320,18 @@
       ).join('');
     }
 
+    if (phase === 'starting') {
+      shakeTitle.textContent = '看这里！马上开始';
+      shakeHint.textContent = '圆球会跳动 · 倒计时结束后猛点冲分';
+      return;
+    }
     shakeTitle.textContent = myShakeCount > 0 ? '继续点！' : '猛点圆球冲分';
     shakeHint.textContent =
-      myShakeCount > 0 ? `已点 ${myShakeCount} 次 · 只看自己的成绩` : '只看自己的次数 · 点得越多越亮';
+      myShakeCount > 0
+        ? `已点 ${myShakeCount} 次 · 只看自己的成绩`
+        : phase === 'open'
+          ? '倒计时中 · 点跳动的圆球冲分'
+          : '只看自己的次数 · 点得越多越亮';
   }
 
   function spawnTapFx() {
@@ -336,6 +345,64 @@
     el.style.top = `${y}%`;
     tapFx.appendChild(el);
     setTimeout(() => el.remove(), 700);
+  }
+
+  function setTapBounce(on) {
+    if (shakeOrb) shakeOrb.classList.toggle('is-bounce', !!on);
+    if (btnManualShake) btnManualShake.classList.toggle('is-bounce', !!on);
+  }
+
+  function stopStartIntro() {
+    clearTimeout(startIntroTimer);
+    startIntroTimer = null;
+    startIntroOpenAt = null;
+    if (mStartCd) mStartCd.classList.add('hidden');
+  }
+
+  function paintStartCd(step) {
+    if (!mStartCd || !mStartCdNum) return;
+    mStartCd.classList.remove('hidden');
+    const text = String(step);
+    const isGo = text.toUpperCase() === 'GO!';
+    mStartCdNum.textContent = text;
+    mStartCdNum.classList.remove('is-go');
+    void mStartCdNum.offsetWidth;
+    mStartCdNum.classList.toggle('is-go', isGo);
+    if (mStartCdLabel) mStartCdLabel.textContent = isGo ? '开始！' : '预备…';
+  }
+
+  function runStartIntro(payload) {
+    stopStartIntro();
+    stopRoundTick();
+    if (mRoundTimer) mRoundTimer.classList.add('hidden');
+
+    const intro = payload.intro && payload.intro.length ? payload.intro : ['3', '2', '1', 'GO!'];
+    const stepMs = payload.introStepMs || 1000;
+    if (payload.serverNow) clockOffset = payload.serverNow - Date.now();
+    startIntroOpenAt = payload.openAt || Date.now() + intro.length * stepMs;
+
+    phase = 'starting';
+    show(panelShake);
+    setTapBounce(true);
+    updateShakeUi();
+    shakeTitle.textContent = '看这里！马上开始';
+    shakeHint.textContent = '圆球会跳动 · 倒计时结束后猛点冲分';
+
+    const now = Date.now() + clockOffset;
+    const elapsed = Math.max(0, now - (startIntroOpenAt - intro.length * stepMs));
+    let i = Math.min(intro.length - 1, Math.floor(elapsed / stepMs));
+
+    const tick = () => {
+      if (phase !== 'starting') return;
+      if (i >= intro.length) {
+        stopStartIntro();
+        return;
+      }
+      paintStartCd(intro[i]);
+      i += 1;
+      startIntroTimer = setTimeout(tick, stepMs);
+    };
+    tick();
   }
 
   function stopRoundTick() {
@@ -393,6 +460,8 @@
     phase = next;
 
     if (phase === 'revealing') {
+      stopStartIntro();
+      setTapBounce(false);
       if (panelReveal.classList.contains('hidden')) {
         waitStatus.textContent = myShakeCount ? (myRank ? `第 ${myRank} 名` : '已摇到') : '未摇到';
         waitHint.textContent = '揭晓即将开始，请看大屏与本机倒计时';
@@ -401,11 +470,26 @@
       return;
     }
 
+    if (phase === 'starting') {
+      show(panelShake);
+      setTapBounce(true);
+      if (mRoundTimer) mRoundTimer.classList.add('hidden');
+      updateShakeUi();
+      shakeTitle.textContent = '看这里！马上开始';
+      shakeHint.textContent = '圆球会跳动 · 倒计时结束后猛点冲分';
+      return;
+    }
+
     if (phase === 'open') {
+      stopStartIntro();
       waitStatus.textContent = '可以点了';
       waitHint.textContent = '倒计时中，猛点圆球冲分！';
       updateShakeUi();
       show(panelShake);
+      setTapBounce(true);
+      shakeTitle.textContent = myShakeCount > 0 ? '继续点！' : '猛点圆球冲分';
+      shakeHint.textContent =
+        myShakeCount > 0 ? `已点 ${myShakeCount} 次 · 只看自己的成绩` : '倒计时中 · 点跳动的圆球冲分';
       if (roundEndsAt) {
         if (mRoundTimer) mRoundTimer.classList.remove('hidden');
       }
@@ -414,6 +498,8 @@
     }
 
     if (phase === 'locked') {
+      stopStartIntro();
+      setTapBounce(false);
       waitStatus.textContent = myShakeCount ? `已点 ${myShakeCount} 次` : '还没点';
       waitHint.textContent = myShakeCount
         ? `你点了 ${myShakeCount} 次，等待开奖`
@@ -423,7 +509,9 @@
     }
 
     if (phase === 'done') {
+      stopStartIntro();
       stopRoundTick();
+      setTapBounce(false);
       if (!panelResult.classList.contains('hidden') || !mRollFinal.classList.contains('hidden')) {
         return;
       }
@@ -433,7 +521,9 @@
       return;
     }
 
+    stopStartIntro();
     stopRoundTick();
+    setTapBounce(false);
     if (mRoundTimer) mRoundTimer.classList.add('hidden');
     waitStatus.textContent = '已入场';
     waitHint.textContent = '等待主持人开始…';
@@ -464,6 +554,12 @@
       if (msg.roundEndsAt) syncRoundTimer(msg);
       maybeRequestSensorUi();
       applyPhase(msg.phase);
+      if (msg.phase === 'starting' && msg.startIntro) runStartIntro(msg.startIntro);
+      return;
+    }
+
+    if (msg.type === 'start_intro') {
+      runStartIntro(msg);
       return;
     }
 
@@ -473,6 +569,12 @@
       if (msg.roundEndsAt) syncRoundTimer(msg);
       if (msg.phase && msg.phase !== 'revealing') applyPhase(msg.phase);
       else if (msg.phase === 'revealing') phase = 'revealing';
+      return;
+    }
+
+    if (msg.type === 'round_timer') {
+      syncRoundTimer(msg);
+      applyPhase('open');
       return;
     }
 
@@ -494,12 +596,6 @@
       return;
     }
 
-    if (msg.type === 'round_timer') {
-      syncRoundTimer(msg);
-      applyPhase('open');
-      return;
-    }
-
     if (msg.type === 'round_end') {
       stopRoundTick();
       roundEndsAt = null;
@@ -508,13 +604,13 @@
       show(panelReveal);
       mRollLive.classList.add('hidden');
       mRollFinal.classList.remove('hidden');
-      renderAllWinners(msg.winners, msg.prizes || {});
+      renderAllWinners(msg.finalTop || msg.topShakers || msg.winners, msg.prizes || { top: '本轮前五名' });
       if (pendingPersonalResult) {
         mMyResultHint.textContent = pendingPersonalResult;
       } else if (myRank) {
-        mMyResultHint.textContent = `你的排名：第 ${myRank} 名 · 摇了 ${myShakeCount} 次`;
+        mMyResultHint.textContent = `你的排名：第 ${myRank} 名 · 点了 ${myShakeCount} 次`;
       } else {
-        mMyResultHint.textContent = '本轮未成功摇到';
+        mMyResultHint.textContent = '本轮未上榜';
       }
       return;
     }

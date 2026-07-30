@@ -301,10 +301,10 @@
 .live-board-list {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.32rem;
   flex: 1;
   overflow: auto;
-  max-height: min(52vh, 480px);
+  max-height: min(58vh, 560px);
   padding-right: 0.25rem;
 }
 
@@ -320,11 +320,11 @@
 
 .live-row {
   display: grid;
-  grid-template-columns: 2.4rem 1fr;
-  gap: 0.65rem;
+  grid-template-columns: 1.9rem 1fr;
+  gap: 0.45rem;
   align-items: center;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.85rem;
+  padding: 0.32rem 0.5rem;
+  border-radius: 0.65rem;
   background: rgba(247, 243, 234, 0.06);
   border: 1px solid rgba(226, 184, 87, 0.16);
   animation: live-row-in 0.35s ease both;
@@ -347,12 +347,13 @@
 }
 
 .live-medal {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 1.7rem;
+  height: 1.7rem;
   border-radius: 50%;
   display: grid;
   place-items: center;
   font-weight: 800;
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: #1a1408;
   background: linear-gradient(145deg, #d8dee6, #9aa3ad);
@@ -1165,19 +1166,23 @@
 }
 
 .roll-winners-all {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  width: min(100%, 1100px);
+  display: flex;
+  justify-content: center;
+  width: min(100%, 560px);
   text-align: left;
 }
 
 .roll-tier-col {
+  width: 100%;
   border: 1px solid rgba(226, 184, 87, 0.28);
   border-radius: 1.1rem;
   padding: 1rem 0.85rem;
   background: rgba(0, 0, 0, 0.22);
   min-height: 180px;
+}
+
+.roll-tier-col.roll-tier-top {
+  border-color: rgba(240, 211, 106, 0.4);
 }
 
 .roll-tier-col h3 {
@@ -1201,6 +1206,11 @@
   margin-bottom: 0.55rem;
 }
 
+.roll-winner-card.final-rank-1 {
+  border-color: rgba(240, 211, 106, 0.65);
+  box-shadow: 0 0 28px rgba(240, 211, 106, 0.2);
+}
+
 .roll-winners {
   display: flex;
   flex-wrap: wrap;
@@ -1210,7 +1220,7 @@
 
 @media (max-width: 900px) {
   .roll-winners-all {
-    grid-template-columns: 1fr;
+    width: min(100%, 480px);
   }
 }
 
