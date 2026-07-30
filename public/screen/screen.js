@@ -764,10 +764,31 @@
     if (!revealBusy) showIdle(state);
   }
 
+  let reconnectAttempt = 0;
+  let pingTimer = null;
+
   function persistRoom(id) {
     roomId = id || null;
     if (roomId) sessionStorage.setItem(ROOM_KEY, roomId);
     else sessionStorage.removeItem(ROOM_KEY);
+  }
+
+  function applyServerClock(msg) {
+    if (msg && msg.serverNow) clockOffset = msg.serverNow - Date.now();
+  }
+
+  function stopPing() {
+    clearInterval(pingTimer);
+    pingTimer = null;
+  }
+
+  function startPing() {
+    stopPing();
+    pingTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 20000);
   }
 
   function createOrJoinScreen() {
@@ -779,7 +800,9 @@
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     ws = new WebSocket(wsUrl());
     ws.addEventListener('open', () => {
+      reconnectAttempt = 0;
       setStatus('已连接');
+      startPing();
       createOrJoinScreen();
     });
     ws.addEventListener('message', (ev) => {
@@ -787,6 +810,10 @@
       try {
         msg = JSON.parse(ev.data);
       } catch {
+        return;
+      }
+      if (msg.type === 'pong') {
+        applyServerClock(msg);
         return;
       }
       if (msg.type === 'error') {
@@ -810,10 +837,12 @@
         return;
       }
       if (msg.type === 'state') {
+        applyServerClock(msg);
         applyState(msg);
         return;
       }
       if (msg.type === 'start_intro') {
+        applyServerClock(msg);
         runStartIntro(msg);
         unlockMusic();
         playMusic('reveal');
@@ -828,6 +857,7 @@
         }
         stageQr.classList.remove('hidden');
         stageIdle.classList.add('hidden');
+        applyServerClock(msg);
         syncRoundTimer(msg);
         phasePill.textContent = PHASE_TEXT.open;
         currentPhase = 'open';
@@ -877,16 +907,20 @@
       }
     });
     ws.addEventListener('close', () => {
+      stopPing();
       setStatus('连接断开，重连中…');
       clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(connect, 1200);
+      const delay = Math.min(10000, 1000 * Math.pow(2, reconnectAttempt));
+      reconnectAttempt += 1;
+      reconnectTimer = setTimeout(connect, delay);
     });
   }
 
   function host(action) {
     unlockMusic();
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setStatus('尚未连接服务器');
+      setStatus('尚未连接服务器，正在重连…');
+      connect();
       return;
     }
     ws.send(JSON.stringify({ type: 'host', action }));

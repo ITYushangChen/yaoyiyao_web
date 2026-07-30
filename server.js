@@ -6,13 +6,42 @@ const { upgrade } = require('./lib/ws');
 const { RoomManager } = require('./lib/room');
 const { getPrizeConfig, getLanSettings, setLanUrl, getScreenSettings, normalizeBaseUrl } = require('./lib/db');
 const { ensureCerts } = require('./lib/certs');
+const { saveRoomsSnapshot, loadRoomsSnapshot } = require('./lib/persist');
 
 const PORT = Number(process.env.PORT) || 8780;
 const HTTPS_PORT = Number(process.env.HTTPS_PORT) || PORT + 1;
-// 仅点按玩法：扫码用 HTTP，无需证书警告。若要恢复真摇，改为 true
 const ENABLE_HTTPS_FOR_SHAKE = false;
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const rooms = new RoomManager();
+const STARTED_AT = Date.now();
+const PERSIST_INTERVAL_MS = 2000;
+
+let shuttingDown = false;
+let persistTimer = null;
+let persistQueued = false;
+
+const rooms = new RoomManager({
+  onDirty: () => {
+    persistQueued = true;
+  },
+});
+
+function flushPersist(force = false) {
+  if (!force && !persistQueued) return;
+  persistQueued = false;
+  try {
+    saveRoomsSnapshot(rooms.serialize());
+  } catch (err) {
+    console.error('[persist] save failed:', err.message);
+  }
+}
+
+persistTimer = setInterval(() => flushPersist(false), PERSIST_INTERVAL_MS);
+if (persistTimer.unref) persistTimer.unref();
+
+const restored = rooms.restoreFromSnapshot(loadRoomsSnapshot());
+if (restored > 0) {
+  console.log(`[persist] restored ${restored} room(s) from snapshot`);
+}
 
 let httpsReady = false;
 
@@ -180,6 +209,10 @@ function lanPayload() {
 function onSocket(ws) {
   ws.onMessage = (msg) => {
     if (!msg || typeof msg !== 'object') return;
+    if (shuttingDown && (msg.type === 'create_screen')) {
+      ws.send({ type: 'error', message: '服务正在重启，请稍后重试' });
+      return;
+    }
     const type = msg.type;
 
     if (type === 'create_screen') {
@@ -213,6 +246,25 @@ function onSocket(ws) {
         return;
       }
       room.addPlayer(ws, msg.nickname);
+      return;
+    }
+
+    if (type === 'sync') {
+      const room = rooms.get(ws.roomId || msg.roomId);
+      if (!room) {
+        ws.send({ type: 'error', message: '房间不存在' });
+        return;
+      }
+      if (ws.role === 'screen') {
+        room.addScreen(ws);
+        ws.send({ type: 'lan_info', ...lanPayload() });
+        return;
+      }
+      if (ws.role === 'player') {
+        const player = room.players.get(ws.playerId);
+        if (player) room.sendPlayerFullSync(player);
+        return;
+      }
       return;
     }
 
@@ -250,14 +302,21 @@ function onSocket(ws) {
 async function handleRequest(req, res) {
   const urlPath = (req.url || '/').split('?')[0];
 
-  if (urlPath === '/api/health') {
+  if (urlPath === '/api/health' || urlPath === '/health') {
     const access = getAccessInfo();
+    const stats = rooms.stats();
     sendJson(res, 200, {
-      ok: true,
+      ok: !shuttingDown,
+      shuttingDown,
       mode: access.mode,
       httpsEnabled: access.httpsEnabled,
       httpsPort: access.httpsPort,
       baseUrl: access.baseUrl || null,
+      uptimeMs: Date.now() - STARTED_AT,
+      rooms: stats.rooms,
+      players: stats.players,
+      screens: stats.screens,
+      serverNow: Date.now(),
     });
     return;
   }
@@ -394,3 +453,28 @@ if (httpsServer) {
     console.log(`  HTTPS 已监听: 0.0.0.0:${HTTPS_PORT}`);
   });
 }
+
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] received ${signal}, saving rooms…`);
+  try {
+    flushPersist(true);
+  } catch (err) {
+    console.error('[shutdown] persist failed:', err.message);
+  }
+  const closeServer = (srv) =>
+    new Promise((resolve) => {
+      if (!srv) return resolve();
+      srv.close(() => resolve());
+      setTimeout(resolve, 3000);
+    });
+  Promise.all([closeServer(server), closeServer(httpsServer)]).then(() => {
+    console.log('[shutdown] bye');
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

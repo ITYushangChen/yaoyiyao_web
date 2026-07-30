@@ -120,6 +120,41 @@
       .replace(/"/g, '&quot;');
   }
 
+  let reconnectAttempt = 0;
+  let reconnectTimer = null;
+  let heartbeatTimer = null;
+  let pendingOptimistic = 0;
+
+  function applyServerClock(msg) {
+    if (msg && msg.serverNow) clockOffset = msg.serverNow - Date.now();
+  }
+
+  function stopHeartbeat() {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        send({ type: 'ping' });
+      }
+    }, 20000);
+  }
+
+  function scheduleReconnect() {
+    if (!joinedNickname) return;
+    clearTimeout(reconnectTimer);
+    const delay = Math.min(10000, 1000 * Math.pow(2, reconnectAttempt));
+    reconnectAttempt += 1;
+    reconnectTimer = setTimeout(() => {
+      connect(() => {
+        send({ type: 'join_player', roomId, nickname: joinedNickname });
+      });
+    }, delay);
+  }
+
   function connect(onOpen) {
     if (ws && ws.readyState === WebSocket.OPEN) {
       if (onOpen) onOpen();
@@ -132,22 +167,48 @@
 
     ws = new WebSocket(wsUrl());
     ws.addEventListener('open', () => {
+      reconnectAttempt = 0;
+      startHeartbeat();
       if (onOpen) onOpen();
     });
     ws.addEventListener('message', onMessage);
     ws.addEventListener('close', () => {
-      if (!joinedNickname) return;
-      setTimeout(() => {
-        connect(() => {
-          send({ type: 'join_player', roomId, nickname: joinedNickname });
-        });
-      }, 1200);
+      stopHeartbeat();
+      scheduleReconnect();
+    });
+    ws.addEventListener('error', () => {
+      /* close handler will reconnect */
     });
   }
 
   function send(obj) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify(obj));
+  }
+
+  function applyJoinedOrSync(msg) {
+    joinedNickname = msg.nickname || joinedNickname;
+    setJoinError('');
+    applyServerClock(msg);
+    if (typeof msg.shakeCount === 'number') {
+      myShakeCount = msg.shakeCount;
+      pendingOptimistic = 0;
+    }
+    if (msg.rank != null) myRank = msg.rank;
+    if (typeof msg.participantCount === 'number') mJoined.textContent = msg.participantCount;
+    if (typeof msg.shakenCount === 'number') mShaken.textContent = msg.shakenCount;
+    if (msg.roundEndsAt) syncRoundTimer(msg);
+    else if (msg.phase && msg.phase !== 'open') {
+      roundEndsAt = null;
+      stopRoundTick();
+      if (mRoundTimer) mRoundTimer.classList.add('hidden');
+    }
+    maybeRequestSensorUi();
+    if (msg.phase) {
+      applyPhase(msg.phase);
+      if (msg.phase === 'starting' && msg.startIntro) runStartIntro(msg.startIntro);
+    }
+    updateShakeUi();
   }
 
   function stopRevealTimers() {
@@ -539,31 +600,30 @@
       return;
     }
 
+    if (msg.type === 'pong') {
+      applyServerClock(msg);
+      return;
+    }
+
     if (msg.type === 'error') {
       setJoinError(msg.message || '出错了');
       sensorMsg.textContent = msg.message || '';
       return;
     }
 
-    if (msg.type === 'joined') {
-      joinedNickname = msg.nickname;
-      setJoinError('');
-      phase = msg.phase;
-      myShakeCount = msg.shakeCount || 0;
-      updateShakeUi();
-      if (msg.roundEndsAt) syncRoundTimer(msg);
-      maybeRequestSensorUi();
-      applyPhase(msg.phase);
-      if (msg.phase === 'starting' && msg.startIntro) runStartIntro(msg.startIntro);
+    if (msg.type === 'joined' || msg.type === 'sync') {
+      applyJoinedOrSync(msg);
       return;
     }
 
     if (msg.type === 'start_intro') {
+      applyServerClock(msg);
       runStartIntro(msg);
       return;
     }
 
     if (msg.type === 'lobby' || msg.type === 'progress' || msg.type === 'phase') {
+      applyServerClock(msg);
       if (typeof msg.participantCount === 'number') mJoined.textContent = msg.participantCount;
       if (typeof msg.shakenCount === 'number') mShaken.textContent = msg.shakenCount;
       if (msg.roundEndsAt) syncRoundTimer(msg);
@@ -573,20 +633,29 @@
     }
 
     if (msg.type === 'round_timer') {
+      applyServerClock(msg);
       syncRoundTimer(msg);
       applyPhase('open');
       return;
     }
 
     if (msg.type === 'shaken') {
-      myShakeCount = msg.shakeCount || myShakeCount + 1;
+      const wasOptimistic = pendingOptimistic > 0;
+      if (typeof msg.shakeCount === 'number') {
+        myShakeCount = msg.shakeCount;
+        pendingOptimistic = 0;
+      }
       myRank = msg.rank;
-      shakeOrb.classList.remove('active');
-      void shakeOrb.offsetWidth;
-      shakeOrb.classList.add('active');
-      if (navigator.vibrate) navigator.vibrate(18);
-      spawnTapFx();
-      updateShakeUi({ pop: true });
+      if (!msg.rateLimited && !wasOptimistic) {
+        shakeOrb.classList.remove('active');
+        void shakeOrb.offsetWidth;
+        shakeOrb.classList.add('active');
+        if (navigator.vibrate) navigator.vibrate(18);
+        spawnTapFx();
+        updateShakeUi({ pop: true });
+      } else {
+        updateShakeUi();
+      }
       show(panelShake);
       return;
     }
@@ -655,14 +724,32 @@
     const now = Date.now();
     if (source === 'tap') {
       lastTapFire = now;
-      // 仅极短压制，避免「点一下」立刻被同一次触碰震动重复记
       suppressMotionUntil = now + MOTION_SUPPRESS_AFTER_TAP_MS;
     } else if (now < suppressMotionUntil) {
       return;
     }
-    // 真摇：无冷却，传感器每帧够阈值就上报
     if (source === 'motion') lastMotionFire = now;
     lastShakeFire = now;
+
+    // 弱网乐观加分，等服务端 ACK 校正
+    pendingOptimistic += 1;
+    myShakeCount += 1;
+    updateShakeUi({ pop: true });
+    spawnTapFx();
+    if (shakeOrb) {
+      shakeOrb.classList.remove('active');
+      void shakeOrb.offsetWidth;
+      shakeOrb.classList.add('active');
+    }
+    if (navigator.vibrate) navigator.vibrate(12);
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      connect(() => {
+        if (joinedNickname) send({ type: 'join_player', roomId, nickname: joinedNickname });
+        send({ type: 'shake' });
+      });
+      return;
+    }
     send({ type: 'shake' });
   }
 

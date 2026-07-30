@@ -2,10 +2,12 @@
   "name": "yaoyiyao",
   "version": "1.0.0",
   "private": true,
-  "description": "大屏摇一摇排序抽奖（局域网模式，按摇动次数排名）",
+  "description": "大屏摇一摇排序抽奖（局域网 / Railway 公网兼容）",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:lan": "env -u PUBLIC_URL -u BASE_URL -u LAN_URL -u RAILWAY_PUBLIC_DOMAIN -u RAILWAY_STATIC_URL node server.js",
+    "start:public": "node server.js"
   },
   "engines": {
     "node": ">=18"
