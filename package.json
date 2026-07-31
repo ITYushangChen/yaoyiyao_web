@@ -2,7 +2,7 @@
   "name": "yaoyiyao",
   "version": "1.0.0",
   "private": true,
-  "description": "大屏摇一摇排序抽奖（局域网 / Railway 公网兼容）",
+  "description": "幸运多一点 · 大屏点按冲榜抽奖（局域网 / Railway 公网兼容）",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -329,9 +329,9 @@
           if (pendingPersonalResult) {
             mMyResultHint.textContent = pendingPersonalResult;
           } else if (myRank) {
-            mMyResultHint.textContent = `你的排名：第 ${myRank} 名 · 摇了 ${myShakeCount} 次`;
+            mMyResultHint.textContent = `你的排名：第 ${myRank} 名 · 点了 ${myShakeCount} 次`;
           } else {
-            mMyResultHint.textContent = '本轮未成功摇到';
+            mMyResultHint.textContent = '本轮未上榜';
           }
         });
         return;
@@ -383,15 +383,15 @@
 
     if (phase === 'starting') {
       shakeTitle.textContent = '看这里！马上开始';
-      shakeHint.textContent = '圆球会跳动 · 倒计时结束后猛点冲分';
+      shakeHint.textContent = '圆球会跳动 · 倒计时结束后开始幸运多一点';
       return;
     }
-    shakeTitle.textContent = myShakeCount > 0 ? '继续点！' : '猛点圆球冲分';
+    shakeTitle.textContent = myShakeCount > 0 ? '继续点！' : '幸运多一点 · 猛点冲分';
     shakeHint.textContent =
       myShakeCount > 0
         ? `已点 ${myShakeCount} 次 · 只看自己的成绩`
         : phase === 'open'
-          ? '倒计时中 · 点跳动的圆球冲分'
+          ? '倒计时中 · 幸运多一点'
           : '只看自己的次数 · 点得越多越亮';
   }
 
@@ -447,7 +447,7 @@
     setTapBounce(true);
     updateShakeUi();
     shakeTitle.textContent = '看这里！马上开始';
-    shakeHint.textContent = '圆球会跳动 · 倒计时结束后猛点冲分';
+    shakeHint.textContent = '圆球会跳动 · 倒计时结束后开始幸运多一点';
 
     const now = Date.now() + clockOffset;
     const elapsed = Math.max(0, now - (startIntroOpenAt - intro.length * stepMs));
@@ -524,7 +524,7 @@
       stopStartIntro();
       setTapBounce(false);
       if (panelReveal.classList.contains('hidden')) {
-        waitStatus.textContent = myShakeCount ? (myRank ? `第 ${myRank} 名` : '已摇到') : '未摇到';
+        waitStatus.textContent = myShakeCount ? (myRank ? `第 ${myRank} 名` : '已上榜') : '未上榜';
         waitHint.textContent = '揭晓即将开始，请看大屏与本机倒计时';
         show(panelWait);
       }
@@ -537,18 +537,18 @@
       if (mRoundTimer) mRoundTimer.classList.add('hidden');
       updateShakeUi();
       shakeTitle.textContent = '看这里！马上开始';
-      shakeHint.textContent = '圆球会跳动 · 倒计时结束后猛点冲分';
+      shakeHint.textContent = '圆球会跳动 · 倒计时结束后开始幸运多一点';
       return;
     }
 
     if (phase === 'open') {
       stopStartIntro();
       waitStatus.textContent = '可以点了';
-      waitHint.textContent = '倒计时中，猛点圆球冲分！';
+      waitHint.textContent = '倒计时中，幸运多一点！';
       updateShakeUi();
       show(panelShake);
       setTapBounce(true);
-      shakeTitle.textContent = myShakeCount > 0 ? '继续点！' : '猛点圆球冲分';
+      shakeTitle.textContent = myShakeCount > 0 ? '继续点！' : '幸运多一点 · 猛点冲分';
       shakeHint.textContent =
         myShakeCount > 0 ? `已点 ${myShakeCount} 次 · 只看自己的成绩` : '倒计时中 · 点跳动的圆球冲分';
       if (roundEndsAt) {
@@ -692,13 +692,13 @@
     if (msg.type === 'result') {
       pendingPersonalResult = msg.prize
         ? `你的结果：${msg.prize}${msg.rank ? ` · 全场第 ${msg.rank} 名` : ''}${
-            msg.shakeCount != null ? ` · 摇了 ${msg.shakeCount} 次` : ''
+            msg.shakeCount != null ? ` · 点了 ${msg.shakeCount} 次` : ''
           }`
-        : '本轮未中奖';
-      resultPrize.textContent = msg.prize || '未中奖';
+        : '本轮未上榜';
+      resultPrize.textContent = msg.prize || '未上榜';
       resultRank.textContent = msg.rank
-        ? `全场第 ${msg.rank} 名${msg.shakeCount != null ? ` · 摇了 ${msg.shakeCount} 次` : ''}`
-        : '本轮未成功摇到';
+        ? `全场第 ${msg.rank} 名${msg.shakeCount != null ? ` · 点了 ${msg.shakeCount} 次` : ''}`
+        : '本轮未上榜';
       resultName.textContent = msg.nickname ? `昵称：${msg.nickname}` : '';
       phase = 'done';
       if (!mRollFinal.classList.contains('hidden') && !panelReveal.classList.contains('hidden')) {
@@ -835,11 +835,11 @@
       if (!sensorListening) return;
       if (motionEventCount === 0) {
         sensorReady = false;
-        setSensorMsg('没收到摇动传感器数据（局域网 http 常见）。请点圆球或下方按钮计数');
+        setSensorMsg('没收到传感器数据（局域网 http 常见）。请点圆球或下方按钮计数');
         showEnableButtons(needsMotionPermission());
       } else if (!sensorReady) {
         sensorReady = true;
-        setSensorMsg('动作感应正常，用力摇手机！');
+        setSensorMsg('动作感应正常；也可点圆球计数');
       }
     }, 2500);
   }
@@ -868,13 +868,13 @@
     // 点按模式：不启用传感器，代码保留便于日后恢复
     if (!ENABLE_SHAKE_SENSOR) {
       showEnableButtons(false);
-      setSensorMsg('当前为点按模式：猛点圆球或下方按钮计数');
+      setSensorMsg('当前为点按模式：幸运多一点，猛点圆球计数');
       return;
     }
 
     if (sensorListening && sensorReady) {
       showEnableButtons(false);
-      setSensorMsg('动作感应已开启，用力摇手机！');
+      setSensorMsg('动作感应已开启；也可点圆球计数');
       return;
     }
 
@@ -883,7 +883,7 @@
       showEnableButtons(false);
       if (isInsecureLan()) {
         setSensorMsg(
-          '当前是 http，浏览器禁用了摇动传感器。请重新扫描大屏二维码（https），首次点「继续访问」；或先点圆球计数'
+          '当前是 http，浏览器禁用了动作传感器。请重新扫描大屏二维码（https），首次点「继续访问」；或先点圆球计数'
         );
       } else {
         setSensorMsg('浏览器未开放动作感应，请点圆球或下方按钮计数');
@@ -893,7 +893,7 @@
 
     if (isInsecureLan()) {
       // 有 API 但 http 下经常收不到事件
-      setSensorMsg('建议使用 https 扫码以启用真摇；也可直接点圆球计数');
+      setSensorMsg('建议使用 https 扫码；也可直接点圆球计数');
     }
 
     if (needsMotionPermission() && !sensorListening) {
@@ -906,7 +906,7 @@
     attachMotionListener();
     showEnableButtons(false);
     if (!isInsecureLan()) {
-      setSensorMsg('可摇手机；若无反应请点圆球计数');
+      setSensorMsg('可使用动作感应；若无反应请点圆球计数');
     }
   }
 
@@ -928,7 +928,7 @@
       attachMotionListener();
       sensorReady = true;
       showEnableButtons(false);
-      setSensorMsg('动作感应已开启，用力摇手机！');
+      setSensorMsg('动作感应已开启；也可点圆球计数');
       if (phase === 'open') applyPhase('open');
     } catch {
       setSensorMsg('授权失败，请点圆球或下方按钮');

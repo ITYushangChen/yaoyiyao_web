@@ -420,11 +420,11 @@ server.listen(PORT, '0.0.0.0', () => {
   const access = getAccessInfo();
   console.log('');
   if (access.mode === 'cloud') {
-    console.log('摇一摇抽奖服务已启动（公网 / Railway）');
+    console.log('幸运多一点服务已启动（公网 / Railway）');
     console.log(`  大屏: ${access.baseUrl}/screen`);
     console.log(`  手机: 扫大屏二维码（${access.baseUrl}）`);
   } else {
-    console.log('摇一摇抽奖服务已启动（局域网模式）');
+    console.log('幸运多一点服务已启动（局域网模式）');
     console.log(`  本机大屏(HTTP): http://127.0.0.1:${PORT}/screen`);
     if (access.httpsEnabled) {
       console.log(`  手机扫码(HTTPS): 端口 ${HTTPS_PORT}（传感器需要 https）`);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>手机扫码预览 · 摇一摇</title>
+  <title>手机扫码预览 · 幸运多一点</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet" />
@@ -28,7 +28,7 @@
       <p class="steps-title">流程步骤</p>
       <button type="button" class="step-btn active" data-step="join">1. 填写昵称入场</button>
       <button type="button" class="step-btn" data-step="wait">2. 等待开始</button>
-      <button type="button" class="step-btn" data-step="shake">3. 摇一摇抢位</button>
+      <button type="button" class="step-btn" data-step="shake">3. 幸运多一点</button>
       <button type="button" class="step-btn" data-step="shaken">4. 已记录名次</button>
       <button type="button" class="step-btn" data-step="result">5. 查看结果</button>
       <p class="steps-note">左侧点选步骤，右侧手机框会切换对应界面。</p>
@@ -39,13 +39,13 @@
       <div class="phone-screen">
         <main class="mobile-app preview-app">
           <header class="m-brand">
-            <div class="brand-mark">摇</div>
-            <h1>摇一摇</h1>
+            <div class="brand-mark">幸</div>
+            <h1>幸运多一点</h1>
           </header>
 
           <section class="panel" id="pvJoin">
             <h2>填写昵称入场</h2>
-            <p class="hint">昵称将显示在大屏中奖名单上</p>
+            <p class="hint">昵称将显示在大屏名单上</p>
             <label class="field">
               <span>昵称</span>
               <input value="小明" maxlength="16" readonly />
@@ -59,36 +59,36 @@
             <p class="hint">等待主持人开始…</p>
             <div class="counter">
               <div><strong>128</strong><span>在场</span></div>
-              <div><strong>0</strong><span>已摇</span></div>
+              <div><strong>0</strong><span>已点</span></div>
             </div>
             <button class="btn btn-accent btn-block" type="button" tabindex="-1">开启动作感应</button>
-            <p class="msg" style="color: var(--muted)">iOS 需要点击按钮授权动作感应</p>
+            <p class="msg" style="color: var(--muted)">也可直接点圆球计数</p>
           </section>
 
           <section class="panel hidden" id="pvShake">
             <div class="shake-orb">
               <div class="orb-ring"></div>
-              <div class="orb-core">摇</div>
+              <div class="orb-core">幸</div>
             </div>
-            <h2>用力摇手机</h2>
-            <p class="hint">第一次有效摇动将决定你的名次</p>
-            <button class="btn btn-ghost btn-block" type="button" tabindex="-1">点这里模拟摇一摇</button>
+            <h2>幸运多一点 · 猛点冲分</h2>
+            <p class="hint">点得越多排名越高</p>
+            <button class="btn btn-ghost btn-block" type="button" tabindex="-1">点这里 +1</button>
           </section>
 
           <section class="panel hidden" id="pvShaken">
             <div class="shake-orb active">
               <div class="orb-ring"></div>
-              <div class="orb-core">摇</div>
+              <div class="orb-core">幸</div>
             </div>
             <h2>已记录 · 第 3 名</h2>
-            <p class="hint">名次以服务器收到顺序为准，请看大屏实时柱状图</p>
-            <button class="btn btn-ghost btn-block" type="button" tabindex="-1" disabled>已摇过</button>
+            <p class="hint">继续猛点冲分，请看大屏实时榜</p>
+            <button class="btn btn-ghost btn-block" type="button" tabindex="-1" disabled>继续点！</button>
           </section>
 
           <section class="panel hidden" id="pvResult">
-            <p class="reveal-kicker">本轮结果</p>
-            <h2 class="result-prize">二等奖 · 精美周边</h2>
-            <p class="result-rank">全场第 3 名</p>
+            <p class="reveal-kicker">本轮前五名</p>
+            <h2 class="result-prize">第 2 名</h2>
+            <p class="result-rank">全场第 2 名 · 点了 86 次</p>
             <p class="hint">昵称：小明</p>
           </section>
         </main>
@@ -97,7 +97,7 @@
 
     <aside class="preview-caption">
       <h2 id="capTitle">1. 填写昵称入场</h2>
-      <p id="capDesc">扫码后首先看到此页。输入昵称并进入会场，大屏会增加「在场」人数，并出现在入场名单里。</p>
+      <p id="capDesc">扫码后首先看到此页。输入昵称并进入会场，大屏「在场」人数增加。</p>
     </aside>
   </div>
 

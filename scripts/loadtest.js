@@ -6,7 +6,7 @@
  *   node scripts/loadtest.js --host 127.0.0.1 --port 8780 --clients 200 --seconds 20
  *
  * 先另开终端启动服务：npm start
- * 大屏浏览器打开 /screen 并「开始摇一摇」后，再跑本脚本（或脚本会先 create_screen 再 start）。
+ * 大屏浏览器打开 /screen 并「开始幸运多一点」后，再跑本脚本（或脚本会先 create_screen 再 start）。
  */
 const http = require('http');
 const crypto = require('crypto');

@@ -3,7 +3,6 @@
 
   const phasePill = $('phasePill');
   const joinedCount = $('joinedCount');
-  const shakenCount = $('shakenCount');
   const screenMain = $('screenMain');
   const stageQr = $('stageQr');
   const stageIdle = $('stageIdle');
@@ -35,7 +34,6 @@
 
   const btnStart = $('btnStart');
   const btnCountdown = $('btnCountdown');
-  const btnMusic = $('btnMusic');
   const btnReset = $('btnReset');
 
   let ws = null;
@@ -67,7 +65,7 @@
   const PHASE_TEXT = {
     waiting: '等待开始',
     starting: '即将开始',
-    open: '摇动进行中',
+    open: '冲榜进行中',
     locked: '待揭晓',
     revealing: '揭晓进行中',
     done: '本轮结束',
@@ -313,8 +311,7 @@
     btnCountdown.classList.toggle('hidden', !canEarly);
     btnCountdown.disabled = !canEarly;
     btnCountdown.textContent = '提前开奖';
-    btnMusic.classList.toggle('hidden', phase !== 'done');
-    btnStart.textContent = phase === 'done' ? '再来一轮' : '开始摇一摇';
+    btnStart.textContent = phase === 'done' ? '再来一轮' : '开始幸运多一点';
     if (phase === 'starting') btnStart.disabled = true;
     updateLayout(phase);
   }
@@ -647,7 +644,7 @@
     setStatus('开场倒计时 · 大屏与手机同步');
 
     if (rollStep) rollStep.textContent = '预备开始';
-    if (rollPrize) rollPrize.textContent = '马上开摇';
+    if (rollPrize) rollPrize.textContent = '马上开始';
     if (rollCountdownLabel) rollCountdownLabel.textContent = '预备…';
     if (rollCountdown) rollCountdown.classList.add('is-intro');
 
@@ -702,7 +699,7 @@
       if (state.phase === 'waiting') {
         qrTip.textContent = lanReady ? '手机扫码加入本场' : '网络未就绪';
       } else if (state.phase === 'open') {
-        qrTip.textContent = '倒计时中 · 请大力摇一摇！';
+        qrTip.textContent = '倒计时中 · 请猛点冲分！';
       } else {
         qrTip.textContent = '已锁定';
       }
@@ -719,7 +716,7 @@
       stageDesc.textContent = '名单已公布';
     } else if (state.phase === 'done') {
       stageTitle.textContent = '本轮已结束';
-      stageDesc.textContent = '可切换庆功音乐，或开始新一轮。';
+      stageDesc.textContent = '可开始新一轮。';
       applyBackground('done');
       playMusic('done');
     }
@@ -729,8 +726,6 @@
   function applyState(state) {
     phasePill.textContent = PHASE_TEXT[state.phase] || state.phase;
     joinedCount.textContent = state.participantCount ?? 0;
-    shakenCount.textContent =
-      state.totalShakes != null ? state.totalShakes : state.shakenCount ?? 0;
     hasShakers = (state.shakenCount || 0) > 0 || (state.totalShakes || 0) > 0;
     revealBusy = !!state.revealBusy;
     nextRevealTier = state.nextRevealTier || null;
@@ -865,7 +860,7 @@
         applyBackground('default');
         unlockMusic();
         playMusic('default');
-        setStatus('倒计时开始 · 摇起来！');
+        setStatus('倒计时开始 · 冲起来！');
         return;
       }
       if (msg.type === 'round_end') {
@@ -883,7 +878,6 @@
           prizes: msg.prizes || lastPrizes,
           config: msg.config || {},
         });
-        btnMusic.classList.remove('hidden');
         updateButtons('done');
         setStatus('时间到 · 前五名出炉！');
         return;
@@ -902,7 +896,6 @@
         phasePill.textContent = PHASE_TEXT.done;
         revealBusy = false;
         showDoneBoard({ phase: 'done', winners: msg.winners || lastWinners, config: {} });
-        btnMusic.classList.remove('hidden');
         setStatus('前五名已揭晓');
       }
     });
@@ -953,12 +946,6 @@
       host('reset');
     }
   });
-  btnMusic.addEventListener('click', () => {
-    unlockMusic();
-    playMusic('done');
-    setStatus('已切换庆功背景音乐');
-  });
-
   loadScreenSettings().then(() => {
     updateButtons('waiting');
     connect();

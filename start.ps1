@@ -25,7 +25,7 @@ if (-not $NodeExe) {
 }
 
 Write-Host ""
-Write-Host "=== 摇一摇 · 局域网模式 ===" -ForegroundColor Yellow
+Write-Host "=== 幸运多一点 · 局域网模式 ===" -ForegroundColor Yellow
 Write-Host "使用 Node: $NodeExe"
 Write-Host "电脑大屏: http://127.0.0.1:8780/screen"
 Write-Host "手机需与电脑连接同一 WiFi"

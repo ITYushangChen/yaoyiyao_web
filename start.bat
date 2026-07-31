@@ -6,7 +6,7 @@ set PORT=%PORT%
 if "%PORT%"=="" set PORT=8780
 
 echo.
-echo === 摇一摇 · 局域网模式 ===
+echo === 幸运多一点 · 局域网模式 ===
 echo.
 
 set "NODE_EXE="
