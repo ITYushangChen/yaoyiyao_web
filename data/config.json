@@ -1,5 +1,6 @@
 {
   "liveTopCount": 20,
   "finalTopCount": 5,
-  "energyBarMax": 200
+  "energyBarMax": 200,
+  "maxPlayers": 220
 }

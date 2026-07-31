@@ -63,8 +63,9 @@ const MIME = {
 };
 
 function resolvePublicBaseUrl() {
+  // 仅 PUBLIC_URL / Railway 走公网；LAN_URL 只用于局域网扫码，不能当成 cloud
   const fromEnv = normalizeBaseUrl(
-    process.env.PUBLIC_URL || process.env.BASE_URL || process.env.LAN_URL || ''
+    process.env.PUBLIC_URL || process.env.BASE_URL || ''
   );
   if (fromEnv) return fromEnv;
   const railwayDomain =

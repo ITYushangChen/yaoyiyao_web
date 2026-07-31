@@ -40,6 +40,7 @@
   const rollNamesLabel = $('rollNamesLabel');
   const statusMsg = $('statusMsg');
   const qrTip = $('qrTip');
+  const qrWifiTip = $('qrWifiTip');
   const screenBg = $('screenBg');
   const bgm = $('bgm');
 
@@ -51,6 +52,7 @@
   let mobileUrl = '';
   let baseUrl = '';
   let lanReady = false;
+  let accessMode = 'lan';
   let reconnectTimer = null;
   let currentPhase = 'waiting';
   let revealBusy = false;
@@ -183,6 +185,11 @@
     return { top: `前 ${n} 名` };
   }
 
+  function setQrWifiTipVisible(visible) {
+    if (!qrWifiTip) return;
+    qrWifiTip.classList.toggle('hidden', !visible);
+  }
+
   function applyLanFromServer(msg) {
     const onPublicHttps =
       location.protocol === 'https:' && !isPrivateHost(location.hostname);
@@ -191,14 +198,23 @@
       !onPublicHttps &&
       (msg.preferHttp === true ||
         (msg.mode === 'lan' && (msg.tapOnly || msg.httpsEnabled === false)));
+    // 本机/内网 IP 一律按局域网显示 WiFi 提示（避免 LAN_URL 误标成 cloud）
+    const onPrivateHost = isPrivateHost(location.hostname);
+    accessMode =
+      msg.mode === 'lan' || onPrivateHost
+        ? 'lan'
+        : msg.mode === 'cloud' || onPublicHttps
+          ? 'cloud'
+          : 'lan';
     baseUrl = pickBestBase(msg.baseUrl, msg.lanUrls, preferHttp);
     lanReady = isUsableLanUrl(baseUrl);
     stageQr.classList.toggle('is-blocked', !lanReady);
     qrTip.textContent = lanReady
-      ? msg.mode === 'cloud' || onPublicHttps
+      ? accessMode === 'cloud'
         ? '手机扫码加入本场（公网，无需同一 WiFi）'
         : '手机扫码加入本场'
       : '请用公网域名打开大屏，或与手机连接同一 WiFi 后刷新';
+    setQrWifiTipVisible(accessMode === 'lan' && currentPhase === 'waiting');
     if (lanReady) {
       localStorage.setItem(LS_KEY, baseUrl);
       refreshQr();
@@ -1031,18 +1047,24 @@
         renderLiveBoard(state.topShakers || state.participants || []);
       }
       if (state.phase === 'waiting') {
-        qrTip.textContent = lanReady ? '手机扫码加入本场' : '网络未就绪';
+        qrTip.textContent = lanReady
+          ? accessMode === 'cloud'
+            ? '手机扫码加入本场（公网，无需同一 WiFi）'
+            : '手机扫码加入本场'
+          : '网络未就绪';
       } else if (state.phase === 'open') {
         qrTip.textContent = '倒计时中 · 请猛点冲分！';
       } else {
         qrTip.textContent = '已锁定';
       }
+      setQrWifiTipVisible(accessMode === 'lan' && state.phase === 'waiting');
       return;
     }
 
     stageQr.classList.add('hidden');
     setWaitingDemoVisible(false);
     setWaitingRosterVisible(false);
+    setQrWifiTipVisible(false);
     if (liveBoard) liveBoard.classList.add('hidden');
     if (roundTimer) roundTimer.classList.add('hidden');
     stageIdle.classList.remove('hidden');

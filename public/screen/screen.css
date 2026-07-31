@@ -857,6 +857,20 @@ body.is-done-fireworks .screen-controls {
   font-size: 1.15rem;
 }
 
+.qr-wifi-tip {
+  margin: 0.2rem 0 0;
+  color: var(--gold);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.qr-wifi-tip.hidden {
+  display: none !important;
+}
+
 .qr-url {
   margin: 0;
   color: var(--muted);
