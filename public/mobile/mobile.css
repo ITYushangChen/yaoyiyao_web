@@ -1,12 +1,41 @@
+/* 锁定整页，避免点按时上下拖动 / 橡皮筋抖动 */
+html:has(body.is-mobile),
+body.is-mobile {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.is-mobile {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
+
+body.is-mobile input,
+body.is-mobile textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
 .mobile-app {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
   padding: 1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   max-width: 480px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .m-brand {
@@ -37,6 +66,7 @@
 
 .panel {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -46,6 +76,12 @@
   background: rgba(8, 14, 11, 0.55);
   backdrop-filter: blur(8px);
   animation: rise-in 0.4s ease both;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.panel-shake {
+  touch-action: none;
 }
 
 .panel h2 {
@@ -191,8 +227,10 @@
   align-items: center;
   justify-content: center;
   gap: 1.1rem;
-  min-height: 42vh;
+  min-height: 0;
   margin: 0.25rem 0 0.5rem;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .shake-orb {
@@ -203,9 +241,10 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .shake-orb.is-bounce {
@@ -223,6 +262,8 @@
 }
 
 .btn-tap {
+  touch-action: none;
+  -webkit-touch-callout: none;
   min-width: 12.5rem;
   width: min(72vw, 16rem);
   font-size: 1.15rem;
@@ -445,19 +486,87 @@
   letter-spacing: 0.18em;
 }
 
-.result-prize {
-  margin: 0.4rem 0;
-  font-family: var(--display);
-  font-size: 2.8rem;
+.panel-congrats {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  border-color: rgba(226, 184, 87, 0.35);
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 20%, rgba(226, 184, 87, 0.22), transparent 60%),
+    rgba(8, 14, 11, 0.72);
+  min-height: 62vh;
+}
+
+.fw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.congrats-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  animation: congrats-pop 0.7s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+.congrats-emoji {
+  margin: 0.4rem 0 0;
+  font-size: 2rem;
   color: var(--gold);
-  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px rgba(226, 184, 87, 0.55);
+  animation: congrats-spark 1.6s ease-in-out infinite;
+}
+
+.result-prize {
+  margin: 0.2rem 0;
+  font-family: var(--display);
+  font-size: 2.6rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
   font-weight: 400;
 }
 
 .result-rank {
-  margin: 0 0 0.75rem;
-  font-size: 1.2rem;
+  margin: 0.15rem 0 0.5rem;
+  font-size: 1.85rem;
   font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+.result-meta {
+  margin: 0;
+}
+
+@keyframes congrats-pop {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes congrats-spark {
+  0%,
+  100% {
+    transform: scale(1) rotate(-6deg);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.18) rotate(6deg);
+    opacity: 1;
+  }
 }
 
 /* 揭晓：与大屏同结构（上倒计时 / 下滚动） */

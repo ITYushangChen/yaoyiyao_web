@@ -14,23 +14,14 @@
 
   const waitStatus = $('waitStatus');
   const waitHint = $('waitHint');
-  const mJoined = $('mJoined');
-  const mShaken = $('mShaken');
-  const btnEnable = $('btnEnable');
-  const sensorMsg = $('sensorMsg');
 
   const shakeOrb = $('shakeOrb');
   const shakeTitle = $('shakeTitle');
   const shakeHint = $('shakeHint');
-  const myShakeCountEl = $('myShakeCount');
   const orbCount = $('orbCount');
   const orbFill = $('orbFill');
-  const myPowerFill = $('myPowerFill');
-  const myPowerPips = $('myPowerPips');
   const tapFx = $('tapFx');
   const btnManualShake = $('btnManualShake');
-  const btnEnableShake = $('btnEnableShake');
-  const sensorMsgShake = $('sensorMsgShake');
   const mRoundTimer = $('mRoundTimer');
   const mRoundTimerNum = $('mRoundTimerNum');
   const mRoundTimerLabel = $('mRoundTimerLabel');
@@ -53,6 +44,8 @@
   const resultPrize = $('resultPrize');
   const resultRank = $('resultRank');
   const resultName = $('resultName');
+  const resultKicker = $('resultKicker');
+  const fwCanvas = $('fwCanvas');
 
   const params = new URLSearchParams(location.search);
   const roomId = params.get('room') || '';
@@ -69,6 +62,10 @@
   let countdownTimer = null;
   let introTimer = null;
   let pendingPersonalResult = null;
+  let pendingIsTopWinner = false;
+  let fwRaf = 0;
+  let fwTimer = 0;
+  let fwRunning = false;
   let roundEndsAt = null;
   let clockOffset = 0;
   let urgencySeconds = 5;
@@ -118,6 +115,148 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  const FW_COLORS = ['#e2b857', '#f5c84a', '#fff4c8', '#3d8f6a', '#7fd4a8', '#ff7b6b', '#ffd0c8'];
+
+  function stopFireworks() {
+    fwRunning = false;
+    cancelAnimationFrame(fwRaf);
+    clearTimeout(fwTimer);
+    fwRaf = 0;
+    fwTimer = 0;
+    if (fwCanvas) {
+      const ctx = fwCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+    }
+  }
+
+  function startFireworks() {
+    if (!fwCanvas || fwRunning) return;
+    fwRunning = true;
+    const ctx = fwCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      const rect = panelResult.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      fwCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      fwCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+
+    const rockets = [];
+    const sparks = [];
+    const burst = (x, y) => {
+      const color = FW_COLORS[(Math.random() * FW_COLORS.length) | 0];
+      const n = 28 + ((Math.random() * 18) | 0);
+      for (let i = 0; i < n; i += 1) {
+        const a = (Math.PI * 2 * i) / n + Math.random() * 0.2;
+        const speed = 1.6 + Math.random() * 3.4;
+        sparks.push({
+          x,
+          y,
+          vx: Math.cos(a) * speed,
+          vy: Math.sin(a) * speed,
+          life: 0.75 + Math.random() * 0.55,
+          color,
+          size: 1.4 + Math.random() * 1.8,
+        });
+      }
+    };
+    const launch = () => {
+      if (!fwRunning) return;
+      const w = panelResult.clientWidth || 320;
+      const h = panelResult.clientHeight || 480;
+      rockets.push({
+        x: w * (0.18 + Math.random() * 0.64),
+        y: h,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: -(5.2 + Math.random() * 2.4),
+        color: FW_COLORS[(Math.random() * FW_COLORS.length) | 0],
+        targetY: h * (0.18 + Math.random() * 0.28),
+      });
+      fwTimer = setTimeout(launch, 420 + Math.random() * 520);
+    };
+
+    const tick = () => {
+      if (!fwRunning) return;
+      const w = panelResult.clientWidth || 320;
+      const h = panelResult.clientHeight || 480;
+      ctx.clearRect(0, 0, w, h);
+
+      for (let i = rockets.length - 1; i >= 0; i -= 1) {
+        const r = rockets[i];
+        r.x += r.vx;
+        r.y += r.vy;
+        r.vy += 0.045;
+        ctx.beginPath();
+        ctx.fillStyle = r.color;
+        ctx.arc(r.x, r.y, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        if (r.y <= r.targetY || r.vy >= 0) {
+          burst(r.x, r.y);
+          rockets.splice(i, 1);
+        }
+      }
+
+      for (let i = sparks.length - 1; i >= 0; i -= 1) {
+        const s = sparks[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.035;
+        s.vx *= 0.99;
+        s.life -= 0.016;
+        if (s.life <= 0) {
+          sparks.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = Math.max(0, Math.min(1, s.life));
+        ctx.beginPath();
+        ctx.fillStyle = s.color;
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      fwRaf = requestAnimationFrame(tick);
+    };
+
+    launch();
+    setTimeout(launch, 180);
+    setTimeout(launch, 360);
+    fwRaf = requestAnimationFrame(tick);
+
+    // 约 12 秒后停止新发射，粒子自然消散
+    setTimeout(() => {
+      clearTimeout(fwTimer);
+      fwTimer = 0;
+      setTimeout(stopFireworks, 2500);
+    }, 12000);
+  }
+
+  function showCongrats(msg) {
+    const rank = Number(msg.rank) || 0;
+    pendingIsTopWinner = true;
+    pendingPersonalResult = `恭喜！你是第 ${rank} 名${
+      msg.shakeCount != null ? ` · 点了 ${msg.shakeCount} 次` : ''
+    }`;
+    if (resultKicker) resultKicker.textContent = '恭喜上榜';
+    resultPrize.textContent = '恭喜你！';
+    resultRank.textContent = rank > 0 ? `你是第 ${rank} 名` : '你已进入前五名';
+    resultName.textContent = [
+      msg.nickname ? `昵称：${msg.nickname}` : '',
+      msg.shakeCount != null ? `本轮 ${msg.shakeCount} 次` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    phase = 'done';
+    stopRevealTimers();
+    show(panelResult);
+    stopFireworks();
+    requestAnimationFrame(() => startFireworks());
+    if (navigator.vibrate) navigator.vibrate([40, 40, 80]);
   }
 
   let reconnectAttempt = 0;
@@ -195,8 +334,6 @@
       pendingOptimistic = 0;
     }
     if (msg.rank != null) myRank = msg.rank;
-    if (typeof msg.participantCount === 'number') mJoined.textContent = msg.participantCount;
-    if (typeof msg.shakenCount === 'number') mShaken.textContent = msg.shakenCount;
     if (msg.roundEndsAt) syncRoundTimer(msg);
     else if (msg.phase && msg.phase !== 'open') {
       roundEndsAt = null;
@@ -224,7 +361,7 @@
     const list = Array.isArray(winners)
       ? winners
       : (winners && (winners.top || winners.first)) || [];
-    const rows = (list || []).slice(0, 5);
+    const rows = list || [];
     const col = document.createElement('div');
     col.className = 'm-tier-col';
     const title = document.createElement('h3');
@@ -349,14 +486,6 @@
 
   function updateShakeUi(opts = {}) {
     const popped = !!opts.pop;
-    if (myShakeCountEl) {
-      myShakeCountEl.textContent = String(myShakeCount);
-      if (popped) {
-        myShakeCountEl.classList.remove('is-pop');
-        void myShakeCountEl.offsetWidth;
-        myShakeCountEl.classList.add('is-pop');
-      }
-    }
     if (orbCount) {
       orbCount.textContent = String(myShakeCount);
       if (popped) {
@@ -366,20 +495,11 @@
       }
     }
 
-    // 能量条：每 20 次一格循环涨满，视觉上持续推进
+    // 圆球内填充随次数轻微变化（每 20 次一循环）
     const cycle = 20;
     const inCycle = myShakeCount % cycle;
     const pct = myShakeCount === 0 ? 0 : Math.max(6, Math.round(((inCycle || cycle) / cycle) * 100));
-    if (myPowerFill) myPowerFill.style.width = `${pct}%`;
     if (orbFill) orbFill.style.height = `${pct}%`;
-
-    // 小圆点：最多 10 个，表示当前进度段
-    if (myPowerPips) {
-      const lit = Math.min(10, Math.ceil(pct / 10));
-      myPowerPips.innerHTML = Array.from({ length: 10 }, (_, i) =>
-        `<span class="pip${i < lit ? ' on' : ''}"></span>`
-      ).join('');
-    }
 
     if (phase === 'starting') {
       shakeTitle.textContent = '看这里！马上开始';
@@ -392,7 +512,7 @@
         ? `已点 ${myShakeCount} 次 · 只看自己的成绩`
         : phase === 'open'
           ? '倒计时中 · 幸运多一点'
-          : '只看自己的次数 · 点得越多越亮';
+          : '只看自己的次数 · 点得越多排名越高';
   }
 
   function spawnTapFx() {
@@ -517,8 +637,18 @@
     roundTickTimer = setInterval(tick, 200);
   }
 
+  function clearPersonalResult() {
+    pendingPersonalResult = null;
+    pendingIsTopWinner = false;
+    stopFireworks();
+  }
+
   function applyPhase(next) {
     phase = next;
+
+    if (phase === 'waiting' || phase === 'starting' || phase === 'open') {
+      clearPersonalResult();
+    }
 
     if (phase === 'revealing') {
       stopStartIntro();
@@ -573,6 +703,10 @@
       stopStartIntro();
       stopRoundTick();
       setTapBounce(false);
+      if (pendingIsTopWinner) {
+        if (panelResult.classList.contains('hidden')) show(panelResult);
+        return;
+      }
       if (!panelResult.classList.contains('hidden') || !mRollFinal.classList.contains('hidden')) {
         return;
       }
@@ -588,7 +722,6 @@
     if (mRoundTimer) mRoundTimer.classList.add('hidden');
     waitStatus.textContent = '已入场';
     waitHint.textContent = '等待主持人开始…';
-    btnEnable.classList.toggle('hidden', sensorReady);
     show(panelWait);
   }
 
@@ -607,7 +740,6 @@
 
     if (msg.type === 'error') {
       setJoinError(msg.message || '出错了');
-      sensorMsg.textContent = msg.message || '';
       return;
     }
 
@@ -624,8 +756,6 @@
 
     if (msg.type === 'lobby' || msg.type === 'progress' || msg.type === 'phase') {
       applyServerClock(msg);
-      if (typeof msg.participantCount === 'number') mJoined.textContent = msg.participantCount;
-      if (typeof msg.shakenCount === 'number') mShaken.textContent = msg.shakenCount;
       if (msg.roundEndsAt) syncRoundTimer(msg);
       if (msg.phase && msg.phase !== 'revealing') applyPhase(msg.phase);
       else if (msg.phase === 'revealing') phase = 'revealing';
@@ -670,6 +800,11 @@
       roundEndsAt = null;
       phase = 'done';
       stopRevealTimers();
+      // 前五名看专属恭喜页；其他人看前五名单
+      if (pendingIsTopWinner) {
+        if (panelResult.classList.contains('hidden')) show(panelResult);
+        return;
+      }
       show(panelReveal);
       mRollLive.classList.add('hidden');
       mRollFinal.classList.remove('hidden');
@@ -690,33 +825,33 @@
     }
 
     if (msg.type === 'result') {
-      pendingPersonalResult = msg.prize
-        ? `你的结果：${msg.prize}${msg.rank ? ` · 全场第 ${msg.rank} 名` : ''}${
+      if (msg.rank) myRank = msg.rank;
+      if (typeof msg.shakeCount === 'number') myShakeCount = msg.shakeCount;
+      const isTop = msg.tier === 'top' && Number(msg.rank) > 0;
+      if (isTop) {
+        showCongrats(msg);
+        return;
+      }
+      pendingIsTopWinner = false;
+      stopFireworks();
+      pendingPersonalResult = msg.rank
+        ? `你的结果：第 ${msg.rank} 名${
             msg.shakeCount != null ? ` · 点了 ${msg.shakeCount} 次` : ''
           }`
         : '本轮未上榜';
-      resultPrize.textContent = msg.prize || '未上榜';
-      resultRank.textContent = msg.rank
-        ? `全场第 ${msg.rank} 名${msg.shakeCount != null ? ` · 点了 ${msg.shakeCount} 次` : ''}`
-        : '本轮未上榜';
-      resultName.textContent = msg.nickname ? `昵称：${msg.nickname}` : '';
       phase = 'done';
       if (!mRollFinal.classList.contains('hidden') && !panelReveal.classList.contains('hidden')) {
         mMyResultHint.textContent = pendingPersonalResult;
-      } else if (panelReveal.classList.contains('hidden')) {
-        show(panelResult);
       }
     }
   }
 
-  function setSensorMsg(text) {
-    if (sensorMsg) sensorMsg.textContent = text || '';
-    if (sensorMsgShake) sensorMsgShake.textContent = text || '';
+  function setSensorMsg() {
+    /* 点按模式不展示感应提示 */
   }
 
-  function showEnableButtons(show) {
-    btnEnable.classList.toggle('hidden', !show);
-    if (btnEnableShake) btnEnableShake.classList.toggle('hidden', !show);
+  function showEnableButtons() {
+    /* 点按模式不展示感应按钮 */
   }
 
   function fireShake(source) {
@@ -867,8 +1002,6 @@
   function maybeRequestSensorUi() {
     // 点按模式：不启用传感器，代码保留便于日后恢复
     if (!ENABLE_SHAKE_SENSOR) {
-      showEnableButtons(false);
-      setSensorMsg('当前为点按模式：幸运多一点，猛点圆球计数');
       return;
     }
 
@@ -955,8 +1088,27 @@
     if (e.key === 'Enter') btnJoin.click();
   });
 
-  btnEnable.addEventListener('click', enableSensor);
-  if (btnEnableShake) btnEnableShake.addEventListener('click', enableSensor);
+  // 阻止整页上下拖动（输入框 / 可滚动名单除外），避免点按时页面抖动
+  const allowTouchScroll = (el) => {
+    if (!el || !el.closest) return false;
+    if (el.closest('input, textarea, [contenteditable="true"]')) return true;
+    const scroller = el.closest('.m-roll-chart, .m-winners-all');
+    return !!(scroller && scroller.scrollHeight > scroller.clientHeight + 1);
+  };
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!allowTouchScroll(e.target)) e.preventDefault();
+    },
+    { passive: false }
+  );
+  document.addEventListener(
+    'gesturestart',
+    (e) => {
+      e.preventDefault();
+    },
+    { passive: false }
+  );
 
   // 点按：每个 pointerId 只计一次；并压制随后的传感器误触发
   btnManualShake.addEventListener('pointerdown', (e) => {

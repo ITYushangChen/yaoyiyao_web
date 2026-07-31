@@ -5,6 +5,6 @@
   "musicDefault": "/assets/audio/waiting.wav",
   "musicReveal": "/assets/audio/drumroll.wav",
   "musicDone": "/assets/audio/celebrate.wav",
-  "countdownSeconds": 20,
+  "countdownSeconds": 15,
   "urgencySeconds": 5
 }

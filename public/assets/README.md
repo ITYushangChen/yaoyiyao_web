@@ -6,8 +6,9 @@
 
 ```text
 public/assets/
-├── bg/                 # 大屏背景图
-│   └── stage-bg.jpg
+├── bg/                 # 大屏背景图 / 示意动图
+│   ├── stage-bg.jpg
+│   └── tap-demo.mp4    # 等待页全屏循环背景（原片第 2–3 秒）
 └── audio/              # 背景音乐
     ├── waiting.wav     # 等待 / 冲分阶段
     ├── drumroll.wav    # 开场倒计时
@@ -24,7 +25,7 @@ public/assets/
   "musicDefault": "/assets/audio/waiting.wav",
   "musicReveal": "/assets/audio/drumroll.wav",
   "musicDone": "/assets/audio/celebrate.wav",
-  "countdownSeconds": 20,
+  "countdownSeconds": 15,
   "urgencySeconds": 5
 }
 ```

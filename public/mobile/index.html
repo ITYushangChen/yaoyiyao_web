@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/shared.css" />
   <link rel="stylesheet" href="/mobile/mobile.css" />
 </head>
-<body>
+<body class="is-mobile">
   <main class="mobile-app">
     <header class="m-brand">
       <div class="brand-mark">幸</div>
@@ -33,12 +33,6 @@
     <section class="panel hidden" id="panelWait">
       <div class="big-status" id="waitStatus">已入场</div>
       <p class="hint" id="waitHint">等待主持人开始…</p>
-      <div class="counter">
-        <div><strong id="mJoined">0</strong><span>在场</span></div>
-        <div><strong id="mShaken">0</strong><span>已点</span></div>
-      </div>
-      <button class="btn btn-accent btn-block hidden" id="btnEnable" type="button">开启动作感应</button>
-      <p class="msg" id="sensorMsg"></p>
     </section>
 
     <section class="panel panel-shake hidden" id="panelShake">
@@ -47,7 +41,7 @@
         <span class="m-start-cd-label" id="mStartCdLabel">预备…</span>
       </p>
       <p class="m-round-timer hidden" id="mRoundTimer" aria-live="polite">
-        <span class="m-round-timer-num" id="mRoundTimerNum">20</span>
+        <span class="m-round-timer-num" id="mRoundTimerNum">15</span>
         <span class="m-round-timer-label" id="mRoundTimerLabel">秒后开奖</span>
       </p>
       <div class="shake-arena" id="shakeArena">
@@ -63,19 +57,7 @@
         <button class="btn btn-primary btn-tap" id="btnManualShake" type="button">点这里 +1</button>
       </div>
       <h2 id="shakeTitle">幸运多一点 · 猛点冲分</h2>
-      <p class="hint" id="shakeHint">只看自己的次数 · 点得越多越亮</p>
-      <div class="my-power" id="myPower">
-        <div class="my-power-label-row">
-          <span>能量</span>
-          <strong id="myShakeCount">0</strong>
-        </div>
-        <div class="my-power-track">
-          <div class="my-power-fill" id="myPowerFill"></div>
-        </div>
-        <div class="my-power-pips" id="myPowerPips" aria-hidden="true"></div>
-      </div>
-      <button class="btn btn-accent btn-block hidden" id="btnEnableShake" type="button">开启动作感应</button>
-      <p class="msg" id="sensorMsgShake"></p>
+      <p class="hint" id="shakeHint">只看自己的次数 · 点得越多排名越高</p>
     </section>
 
     <section class="panel hidden" id="panelReveal">
@@ -98,11 +80,15 @@
       </div>
     </section>
 
-    <section class="panel hidden" id="panelResult">
-      <p class="reveal-kicker" id="resultKicker">本轮结果</p>
-      <h2 class="result-prize" id="resultPrize">—</h2>
-      <p class="result-rank" id="resultRank"></p>
-      <p class="hint" id="resultName"></p>
+    <section class="panel panel-congrats hidden" id="panelResult">
+      <canvas class="fw-canvas" id="fwCanvas" aria-hidden="true"></canvas>
+      <div class="congrats-body">
+        <p class="reveal-kicker" id="resultKicker">恭喜上榜</p>
+        <p class="congrats-emoji" aria-hidden="true">✦</p>
+        <h2 class="result-prize" id="resultPrize">恭喜你！</h2>
+        <p class="result-rank" id="resultRank">你是第 — 名</p>
+        <p class="hint result-meta" id="resultName"></p>
+      </div>
     </section>
   </main>
 

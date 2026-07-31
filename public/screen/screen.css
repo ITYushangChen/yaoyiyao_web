@@ -18,8 +18,97 @@
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: linear-gradient(180deg, rgba(8, 14, 11, 0.55), rgba(8, 14, 11, 0.82));
   pointer-events: none;
+  transition: background 0.45s ease;
+}
+
+/* 等待页：视频作背景，不裁切；隐藏原背景图 */
+body.is-waiting-video .screen-bg {
+  background-image: none !important;
+  background-color: #0c1210;
+}
+
+body.is-waiting-video .screen-bg::after {
+  background: linear-gradient(
+    90deg,
+    rgba(8, 14, 11, 0.55) 0%,
+    rgba(8, 14, 11, 0.22) 35%,
+    rgba(8, 14, 11, 0.18) 100%
+  );
+}
+
+.waiting-demo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c1210;
+}
+
+.waiting-demo.hidden {
+  display: none !important;
+}
+
+.waiting-demo-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
+}
+
+/* 结束页：烟花全屏，不用背景图；面板透明以免挡住烟花 */
+body.is-done-fireworks .screen-bg {
+  background-image: none !important;
+  background-color: #070b09;
+}
+
+body.is-done-fireworks .screen-bg::after {
+  background: rgba(8, 14, 11, 0.22);
+}
+
+.done-fw-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: block;
+}
+
+.done-fw-canvas.hidden {
+  display: none !important;
+}
+
+body.is-done-fireworks .screen-shell {
+  z-index: 3;
+}
+
+body.is-done-fireworks .screen-main.mode-done .stage-panel {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+body.is-done-fireworks .roll-tier-col.roll-tier-top {
+  background: rgba(8, 14, 11, 0.42);
+  border-color: rgba(226, 184, 87, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+body.is-done-fireworks .screen-top,
+body.is-done-fireworks .screen-controls {
+  position: relative;
+  z-index: 4;
 }
 
 .screen-shell {
@@ -112,17 +201,56 @@
 }
 
 .screen-top {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 1rem;
+  justify-self: start;
+}
+
+.screen-logo-wrap {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(46vw, 520px);
+}
+
+.screen-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: clamp(2.8rem, 6.5vh, 4.8rem);
+  object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.35));
+}
+
+@media (max-width: 900px) {
+  .screen-top {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'logo logo'
+      'brand meta';
+  }
+
+  .screen-logo-wrap {
+    grid-area: logo;
+    max-width: min(72vw, 420px);
+  }
+
+  .brand {
+    grid-area: brand;
+  }
+
+  .meta {
+    grid-area: meta;
+  }
 }
 
 .brand-mark {
@@ -155,6 +283,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  justify-self: end;
 }
 
 .pill {
@@ -196,14 +325,111 @@
   place-items: stretch;
 }
 
-.screen-main.mode-waiting,
 .screen-main.mode-open {
   place-items: center;
 }
 
+.screen-main.mode-waiting {
+  place-items: stretch;
+  position: relative;
+}
+
 .screen-main.mode-waiting .stage-panel {
-  width: min(100%, 720px);
+  width: 100%;
+  height: 100%;
   min-height: min(68vh, 640px);
+  position: relative;
+  display: block;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+}
+
+/* 二维码锚在大屏水平 1/5 处（20vw），垂直居中 */
+.screen-main.mode-waiting .stage-qr {
+  position: fixed;
+  left: 10%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  width: max-content;
+  max-width: min(42vw, 360px);
+  z-index: 2;
+}
+
+/* 已入场名单：右侧固定大框 */
+.waiting-roster {
+  position: fixed;
+  right: 2.5vw;
+  top: 7.5rem;
+  bottom: 5.5rem;
+  z-index: 2;
+  width: min(26vw, 320px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.1rem 1.15rem 1.2rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(226, 184, 87, 0.28);
+  background: rgba(8, 14, 11, 0.68);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.waiting-roster.hidden {
+  display: none !important;
+}
+
+.waiting-roster-title {
+  margin: 0;
+  flex: 0 0 auto;
+  color: var(--gold);
+  letter-spacing: 0.16em;
+  font-size: 0.95rem;
+}
+
+.waiting-roster-list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+}
+
+.waiting-roster-track {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  will-change: transform;
+}
+
+.waiting-roster-list .roster-name {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(247, 243, 234, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 1.05rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.waiting-roster-empty {
+  margin: 0;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.waiting-roster-empty.hidden {
+  display: none !important;
 }
 
 .screen-main.mode-open .stage-panel {
@@ -230,11 +456,16 @@
 .screen-main.mode-open .live-board {
   grid-column: 3;
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 1rem 1.1rem;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(226, 184, 87, 0.28);
+  background: rgba(8, 14, 11, 0.55);
+  backdrop-filter: blur(8px);
 }
 
 .round-timer {
@@ -293,18 +524,19 @@
 
 .live-board-title {
   margin: 0 0 0.85rem;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   color: var(--gold);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
+  font-weight: 700;
 }
 
 .live-board-list {
   display: flex;
   flex-direction: column;
-  gap: 0.32rem;
+  gap: 0.42rem;
   flex: 1;
   overflow: auto;
-  max-height: min(58vh, 560px);
+  max-height: min(62vh, 620px);
   padding-right: 0.25rem;
 }
 
@@ -327,6 +559,9 @@
   border-radius: 0.65rem;
   background: rgba(247, 243, 234, 0.06);
   border: 1px solid rgba(226, 184, 87, 0.16);
+}
+
+.live-row.is-new {
   animation: live-row-in 0.35s ease both;
 }
 
@@ -412,23 +647,33 @@
 }
 
 .live-bar-track {
-  height: 0.45rem;
+  height: 0.85rem;
   border-radius: 999px;
-  background: rgba(247, 243, 234, 0.1);
+  background: rgba(247, 243, 234, 0.12);
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .live-bar-fill {
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #8a6a1a, #f0d36a 55%, #fff3c4);
-  box-shadow: 0 0 12px rgba(240, 211, 106, 0.45);
-  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  background: linear-gradient(90deg, #2f6b4f, #3d8f6a 40%, #f0d36a 78%, #fff3c4);
+  box-shadow: 0 0 14px rgba(240, 211, 106, 0.4);
+  transition: width 0.28s linear;
+  will-change: width;
 }
 
 .live-rank-1 .live-bar-fill {
-  background: linear-gradient(90deg, #c9a227, #ffe08a, #fff8d6);
+  background: linear-gradient(90deg, #b8860b, #ffd700 50%, #fff8d6);
+}
+
+.live-rank-2 .live-bar-fill {
+  background: linear-gradient(90deg, #6a7584, #c0c8d4 55%, #eef2f6);
+}
+
+.live-rank-3 .live-bar-fill {
+  background: linear-gradient(90deg, #8a5a2b, #d4a574 55%, #f0d0a8);
 }
 
 @keyframes live-row-in {
@@ -1203,12 +1448,11 @@
 }
 
 .roll-tier-col .roll-winner-card {
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.65rem;
 }
 
-.roll-winner-card.final-rank-1 {
-  border-color: rgba(240, 211, 106, 0.65);
-  box-shadow: 0 0 28px rgba(240, 211, 106, 0.2);
+.roll-tier-col .roll-winner-card:last-child {
+  margin-bottom: 0;
 }
 
 .roll-winners {
@@ -1225,24 +1469,179 @@
 }
 
 .roll-winner-card {
-  min-width: 160px;
-  padding: 1.1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem 1rem;
+  min-width: 0;
+  padding: 0.85rem 1.1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(226, 184, 87, 0.45);
-  background: linear-gradient(160deg, rgba(226, 184, 87, 0.18), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(226, 184, 87, 0.35);
+  background: linear-gradient(160deg, rgba(226, 184, 87, 0.12), rgba(255, 255, 255, 0.03));
   animation: rise-in 0.55s ease both;
 }
 
-.roll-winner-card .rank {
+.roll-winner-card .rank-badge {
+  flex: 0 0 auto;
+  min-width: 4.6rem;
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: var(--gold);
-  font-family: var(--mono);
-  font-size: 0.85rem;
+  font-size: 1.05rem;
+}
+
+.roll-winner-card .name-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .roll-winner-card .name {
-  margin-top: 0.35rem;
-  font-size: 1.6rem;
+  margin: 0;
+  font-size: 1.45rem;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roll-winner-card .count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 1.85rem;
+  line-height: 1;
+  color: #f5c84a;
+  letter-spacing: -0.02em;
+}
+
+.roll-winner-card .count small {
+  margin-left: 0.15rem;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: rgba(245, 200, 74, 0.85);
+}
+
+/* 第 1 名 */
+.roll-winner-card.final-rank-1 {
+  padding: 1.15rem 1.25rem;
+  border-color: rgba(255, 215, 100, 0.75);
+  background: linear-gradient(160deg, rgba(255, 210, 80, 0.28), rgba(226, 184, 87, 0.08));
+  box-shadow: 0 0 32px rgba(240, 211, 106, 0.28);
+}
+.roll-winner-card.final-rank-1 .rank-badge {
+  font-size: 1.45rem;
+  color: #ffe08a;
+  text-shadow: 0 0 12px rgba(255, 215, 100, 0.45);
+}
+.roll-winner-card.final-rank-1 .name {
+  font-size: 2rem;
+  color: #fff8e7;
+}
+.roll-winner-card.final-rank-1 .count {
+  font-size: 2.45rem;
+  color: #ffe08a;
+}
+
+/* 第 2 名 */
+.roll-winner-card.final-rank-2 {
+  border-color: rgba(192, 200, 210, 0.55);
+  background: linear-gradient(160deg, rgba(192, 200, 210, 0.2), rgba(255, 255, 255, 0.03));
+}
+.roll-winner-card.final-rank-2 .rank-badge {
+  font-size: 1.25rem;
+  color: #d7dee6;
+}
+.roll-winner-card.final-rank-2 .name {
+  font-size: 1.7rem;
+  color: #eef2f6;
+}
+.roll-winner-card.final-rank-2 .count {
+  font-size: 2.15rem;
+  color: #cfd8e2;
+}
+
+/* 第 3 名 */
+.roll-winner-card.final-rank-3 {
+  border-color: rgba(196, 132, 90, 0.55);
+  background: linear-gradient(160deg, rgba(196, 132, 90, 0.22), rgba(255, 255, 255, 0.03));
+}
+.roll-winner-card.final-rank-3 .rank-badge {
+  font-size: 1.15rem;
+  color: #e0a878;
+}
+.roll-winner-card.final-rank-3 .name {
+  font-size: 1.55rem;
+  color: #f3e0cf;
+}
+.roll-winner-card.final-rank-3 .count {
+  font-size: 2rem;
+  color: #e8b48a;
+}
+
+/* 第 4 名 */
+.roll-winner-card.final-rank-4 {
+  border-color: rgba(61, 143, 106, 0.4);
+  background: linear-gradient(160deg, rgba(61, 143, 106, 0.14), rgba(255, 255, 255, 0.02));
+  opacity: 0.96;
+}
+.roll-winner-card.final-rank-4 .rank-badge {
+  font-size: 1rem;
+  color: #7fd4a8;
+}
+.roll-winner-card.final-rank-4 .name {
+  font-size: 1.35rem;
+}
+.roll-winner-card.final-rank-4 .count {
+  font-size: 1.75rem;
+  color: #8fd9b4;
+}
+
+/* 第 5 名 */
+.roll-winner-card.final-rank-5 {
+  border-color: rgba(247, 243, 234, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  opacity: 0.92;
+}
+.roll-winner-card.final-rank-5 .rank-badge {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.roll-winner-card.final-rank-5 .name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgba(243, 239, 230, 0.88);
+}
+.roll-winner-card.final-rank-5 .count {
+  font-size: 1.6rem;
+  color: rgba(226, 184, 87, 0.85);
+}
+
+/* 并列导致上榜超过 5 人时的后续名次 */
+.roll-winner-card.final-rank-more {
+  border-color: rgba(247, 243, 234, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+  opacity: 0.9;
+}
+.roll-winner-card.final-rank-more .rank-badge {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.roll-winner-card.final-rank-more .name {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.roll-winner-card.final-rank-more .count {
+  font-size: 1.5rem;
+  color: rgba(226, 184, 87, 0.8);
+}
+
+.roll-tier-col.roll-tier-top {
+  max-height: min(64vh, 640px);
+  overflow: auto;
 }
 
 .roll-winner-card .prize {

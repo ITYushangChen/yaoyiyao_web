@@ -11,7 +11,23 @@
   <link rel="stylesheet" href="/screen/screen.css" />
 </head>
 <body class="screen-body">
-  <div class="screen-bg" id="screenBg" aria-hidden="true"></div>
+  <div class="screen-bg" id="screenBg" aria-hidden="true">
+    <div class="waiting-demo hidden" id="waitingDemo">
+      <video
+        class="waiting-demo-video"
+        id="waitingDemoVideo"
+        src="/assets/bg/tap-demo.mp4?v=2-3"
+        muted
+        loop
+        autoplay
+        playsinline
+        webkit-playsinline
+        preload="auto"
+        disablepictureinpicture
+      ></video>
+    </div>
+  </div>
+  <canvas class="done-fw-canvas hidden" id="doneFwCanvas" aria-hidden="true"></canvas>
   <audio id="bgm" loop preload="auto"></audio>
 
   <div class="screen-shell">
@@ -21,6 +37,16 @@
         <div>
           <h1>幸运多一点</h1>
         </div>
+      </div>
+      <div class="screen-logo-wrap">
+        <img
+          class="screen-logo"
+          src="/assets/brand/kaituo-longhai.png?v=2"
+          alt="KAITUO LONGHAI"
+          width="720"
+          height="160"
+          decoding="async"
+        />
       </div>
       <div class="meta">
         <div class="pill" id="phasePill">等待开始</div>
@@ -45,13 +71,21 @@
           <p class="qr-tip" id="qrTip">手机扫码加入本场</p>
         </div>
 
+        <aside class="waiting-roster hidden" id="waitingRoster" aria-live="polite">
+          <p class="waiting-roster-title" id="waitingRosterTitle">已入场</p>
+          <div class="waiting-roster-list" id="waitingRosterList">
+            <div class="waiting-roster-track" id="waitingRosterTrack"></div>
+          </div>
+          <p class="waiting-roster-empty" id="waitingRosterEmpty">等待扫码加入…</p>
+        </aside>
+
         <div class="round-timer hidden" id="roundTimer" aria-live="polite">
-          <div class="round-timer-num" id="roundTimerNum">20</div>
+          <div class="round-timer-num" id="roundTimerNum">15</div>
           <p class="round-timer-label" id="roundTimerLabel">秒后开奖</p>
         </div>
 
         <div class="live-board hidden" id="liveBoard" aria-live="polite">
-          <p class="live-board-title" id="liveBoardTitle">实时冲榜 · Top 20</p>
+          <p class="live-board-title" id="liveBoardTitle">实时能量 · Top 20</p>
           <div class="live-board-list" id="liveBoardList"></div>
           <p class="live-board-empty" id="liveBoardEmpty">等待点击…冲上榜首！</p>
         </div>

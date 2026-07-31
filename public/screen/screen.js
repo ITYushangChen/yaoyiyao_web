@@ -5,7 +5,18 @@
   const joinedCount = $('joinedCount');
   const screenMain = $('screenMain');
   const stageQr = $('stageQr');
+  const waitingDemo = $('waitingDemo');
+  const waitingDemoVideo = $('waitingDemoVideo');
+  const doneFwCanvas = $('doneFwCanvas');
+  const waitingRoster = $('waitingRoster');
+  const waitingRosterList = $('waitingRosterList');
+  const waitingRosterTrack = $('waitingRosterTrack');
+  const waitingRosterTitle = $('waitingRosterTitle');
+  const waitingRosterEmpty = $('waitingRosterEmpty');
   const stageIdle = $('stageIdle');
+  let rosterScrollRaf = 0;
+  let rosterScrollOffset = 0;
+  let rosterLastNamesKey = '';
   const stageRoll = $('stageRoll');
   const liveBoard = $('liveBoard');
   const liveBoardList = $('liveBoardList');
@@ -50,6 +61,7 @@
   let introTimer = null;
   let lastWinners = null;
   let lastPrizes = null;
+  let energyBarMax = 200;
   let roundEndsAt = null;
   let clockOffset = 0; // serverNow - Date.now()
   let urgencySeconds = 5;
@@ -60,7 +72,7 @@
   const paramBase = (params.get('lan') || params.get('base') || '').replace(/\/$/, '');
   const LS_KEY = 'yaoyiyao_lan_url';
   const ROOM_KEY = 'yaoyiyao_room_id';
-  let roomId = sessionStorage.getItem(ROOM_KEY) || null;
+  let roomId = params.get('room') || sessionStorage.getItem(ROOM_KEY) || null;
 
   const PHASE_TEXT = {
     waiting: '等待开始',
@@ -218,25 +230,176 @@
     rollFinal.classList.remove('hidden');
     renderFinalTop(finalTop);
     updateLayout('done');
-    applyBackground('done');
+    setDoneFireworksVisible(true);
     unlockMusic();
     playMusic('done');
   }
 
+  const FW_COLORS = ['#e2b857', '#f5c84a', '#fff4c8', '#3d8f6a', '#7fd4a8', '#ff7b6b', '#ffd0c8', '#9ecbff'];
+  let doneFwRaf = 0;
+  let doneFwTimer = 0;
+  let doneFwRunning = false;
+  let doneFwOnResize = null;
+
+  function stopDoneFireworks() {
+    doneFwRunning = false;
+    cancelAnimationFrame(doneFwRaf);
+    clearTimeout(doneFwTimer);
+    doneFwRaf = 0;
+    doneFwTimer = 0;
+    document.body.classList.remove('is-done-fireworks');
+    if (doneFwCanvas) {
+      doneFwCanvas.classList.add('hidden');
+      const ctx = doneFwCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, doneFwCanvas.width, doneFwCanvas.height);
+    }
+    if (doneFwOnResize) {
+      window.removeEventListener('resize', doneFwOnResize);
+      doneFwOnResize = null;
+    }
+  }
+
+  function startDoneFireworks() {
+    if (!doneFwCanvas) return;
+    if (doneFwRunning) return;
+    doneFwRunning = true;
+    document.body.classList.add('is-done-fireworks');
+    doneFwCanvas.classList.remove('hidden');
+    const ctx = doneFwCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      doneFwCanvas.width = Math.max(1, Math.floor(w * dpr));
+      doneFwCanvas.height = Math.max(1, Math.floor(h * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    doneFwOnResize = resize;
+    window.addEventListener('resize', resize);
+
+    const rockets = [];
+    const sparks = [];
+    const burst = (x, y) => {
+      const color = FW_COLORS[(Math.random() * FW_COLORS.length) | 0];
+      const n = 36 + ((Math.random() * 24) | 0);
+      for (let i = 0; i < n; i += 1) {
+        const a = (Math.PI * 2 * i) / n + Math.random() * 0.25;
+        const speed = 2.2 + Math.random() * 4.6;
+        sparks.push({
+          x,
+          y,
+          vx: Math.cos(a) * speed,
+          vy: Math.sin(a) * speed,
+          life: 0.85 + Math.random() * 0.7,
+          color,
+          size: 1.6 + Math.random() * 2.2,
+        });
+      }
+    };
+    const launch = () => {
+      if (!doneFwRunning) return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const count = 1 + ((Math.random() * 2) | 0);
+      for (let i = 0; i < count; i += 1) {
+        rockets.push({
+          x: w * (0.12 + Math.random() * 0.76),
+          y: h + 8,
+          vx: (Math.random() - 0.5) * 1.6,
+          vy: -(6.2 + Math.random() * 3.2),
+          color: FW_COLORS[(Math.random() * FW_COLORS.length) | 0],
+          targetY: h * (0.12 + Math.random() * 0.38),
+        });
+      }
+      doneFwTimer = setTimeout(launch, 280 + Math.random() * 420);
+    };
+
+    const tick = () => {
+      if (!doneFwRunning) return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      for (let i = rockets.length - 1; i >= 0; i -= 1) {
+        const r = rockets[i];
+        r.x += r.vx;
+        r.y += r.vy;
+        r.vy += 0.055;
+        ctx.beginPath();
+        ctx.fillStyle = r.color;
+        ctx.shadowColor = r.color;
+        ctx.shadowBlur = 8;
+        ctx.arc(r.x, r.y, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (r.y <= r.targetY || r.vy >= 0) {
+          burst(r.x, r.y);
+          rockets.splice(i, 1);
+        }
+      }
+
+      for (let i = sparks.length - 1; i >= 0; i -= 1) {
+        const s = sparks[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.04;
+        s.vx *= 0.99;
+        s.life -= 0.014;
+        if (s.life <= 0) {
+          sparks.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = Math.max(0, Math.min(1, s.life));
+        ctx.beginPath();
+        ctx.fillStyle = s.color;
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      doneFwRaf = requestAnimationFrame(tick);
+    };
+
+    launch();
+    setTimeout(launch, 120);
+    setTimeout(launch, 260);
+    doneFwRaf = requestAnimationFrame(tick);
+  }
+
+  function setDoneFireworksVisible(show) {
+    if (show) {
+      applyBackground('done');
+      startDoneFireworks();
+    } else {
+      stopDoneFireworks();
+    }
+  }
+
   function applyBackground(mode) {
     if (!screenBg || !screenSettings) return;
-    const key =
-      mode === 'reveal'
-        ? 'backgroundReveal'
-        : mode === 'done'
-          ? 'backgroundDone'
-          : 'backgroundDefault';
+    // 等待页用视频、结束页用烟花，都不显示原来的背景图
+    if (
+      document.body.classList.contains('is-waiting-video') ||
+      mode === 'waiting' ||
+      mode === 'done' ||
+      document.body.classList.contains('is-done-fireworks')
+    ) {
+      screenBg.style.backgroundImage = 'none';
+      screenBg.style.background = mode === 'done' || document.body.classList.contains('is-done-fireworks')
+        ? '#070b09'
+        : '#0c1210';
+      return;
+    }
+    const key = mode === 'reveal' ? 'backgroundReveal' : 'backgroundDefault';
     const url = screenSettings[key];
     if (url) {
-      screenBg.style.background = `url("${url}") center/cover no-repeat, ${BG_FALLBACK[mode === 'reveal' ? 'reveal' : mode === 'done' ? 'done' : 'default']}`;
+      screenBg.style.background = `url("${url}") center/cover no-repeat, ${BG_FALLBACK[mode === 'reveal' ? 'reveal' : 'default']}`;
     } else {
       screenBg.style.backgroundImage = 'none';
-      screenBg.style.background = BG_FALLBACK[mode === 'reveal' ? 'reveal' : mode === 'done' ? 'done' : 'default'];
+      screenBg.style.background = BG_FALLBACK[mode === 'reveal' ? 'reveal' : 'default'];
     }
   }
 
@@ -278,6 +441,31 @@
     return 280;
   }
 
+  function setWaitingDemoVisible(show) {
+    document.body.classList.toggle('is-waiting-video', !!show);
+    if (waitingDemo) waitingDemo.classList.toggle('hidden', !show);
+    if (show) {
+      applyBackground('waiting');
+    } else if (currentPhase && currentPhase !== 'waiting') {
+      applyBackground(
+        currentPhase === 'done'
+          ? 'done'
+          : currentPhase === 'revealing'
+            ? 'reveal'
+            : 'default'
+      );
+    }
+    if (!waitingDemoVideo) return;
+    if (show) {
+      waitingDemoVideo.currentTime = 0;
+      const play = () => waitingDemoVideo.play().catch(() => {});
+      if (waitingDemoVideo.readyState >= 2) play();
+      else waitingDemoVideo.addEventListener('canplay', play, { once: true });
+    } else {
+      waitingDemoVideo.pause();
+    }
+  }
+
   function updateLayout(phase) {
     if (!screenMain) return;
     const modes = ['waiting', 'open', 'locked', 'reveal', 'done'];
@@ -289,8 +477,13 @@
     else if (phase === 'waiting') mode = 'waiting';
     screenMain.classList.add(`mode-${mode}`);
 
+    if (phase === 'done') setDoneFireworksVisible(true);
+    else stopDoneFireworks();
+
     const showQr = phase === 'waiting' || phase === 'open' || phase === 'locked';
     stageQr.classList.toggle('hidden', !showQr || phase === 'starting');
+    setWaitingDemoVisible(phase === 'waiting');
+    setWaitingRosterVisible(phase === 'waiting');
     if (liveBoard) {
       liveBoard.classList.toggle('hidden', !(phase === 'open' || phase === 'locked'));
     }
@@ -403,39 +596,169 @@
     });
   }
 
-  function renderLiveBoard(list) {
-    if (!liveBoardList) return;
-    const rows = (list || []).slice(0, 20);
-    if (liveBoardTitle) liveBoardTitle.textContent = '实时冲榜 · Top 20';
-    const max = Math.max(...rows.map((r) => Number(r.shakeCount) || 0), 1);
-    liveBoardList.innerHTML = rows
-      .map((r, i) => {
-        const count = Number(r.shakeCount) || 0;
-        const pct = Math.max(8, Math.round((count / max) * 100));
-        const rank = r.rank || i + 1;
-        return `
-      <div class="live-row live-rank-${rank}" data-rank="${rank}">
-        <div class="live-medal" aria-hidden="true">${rank}</div>
-        <div class="live-row-body">
-          <div class="live-row-head">
-            <span class="live-row-name" title="${escapeHtml(r.nickname)}">${escapeHtml(r.nickname)}</span>
-            <span class="live-row-count"><b>${count}</b><small>次</small></span>
-          </div>
-          <div class="live-bar-track">
-            <div class="live-bar-fill" style="--bar:${pct}%"></div>
-          </div>
+  function stopRosterScroll() {
+    cancelAnimationFrame(rosterScrollRaf);
+    rosterScrollRaf = 0;
+    rosterScrollOffset = 0;
+    if (waitingRosterTrack) waitingRosterTrack.style.transform = 'translateY(0)';
+  }
+
+  function setWaitingRosterVisible(show) {
+    if (waitingRoster) waitingRoster.classList.toggle('hidden', !show);
+    if (!show) stopRosterScroll();
+  }
+
+  function startRosterScrollIfNeeded() {
+    stopRosterScroll();
+    if (!waitingRosterList || !waitingRosterTrack) return;
+    const viewH = waitingRosterList.clientHeight;
+    const contentH = waitingRosterTrack.scrollHeight / (waitingRosterTrack.dataset.looped === '1' ? 2 : 1);
+    if (contentH <= viewH + 4) return;
+
+    // 复制一份实现无缝循环下滚
+    if (waitingRosterTrack.dataset.looped !== '1') {
+      waitingRosterTrack.innerHTML += waitingRosterTrack.innerHTML;
+      waitingRosterTrack.dataset.looped = '1';
+    }
+    const loopH = waitingRosterTrack.scrollHeight / 2;
+    const speed = 28; // px/s
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      rosterScrollOffset += speed * dt;
+      if (rosterScrollOffset >= loopH) rosterScrollOffset -= loopH;
+      waitingRosterTrack.style.transform = `translateY(${-rosterScrollOffset}px)`;
+      rosterScrollRaf = requestAnimationFrame(tick);
+    };
+    rosterScrollRaf = requestAnimationFrame(tick);
+  }
+
+  function renderWaitingRoster(names) {
+    if (!waitingRosterTrack && !waitingRosterList) return;
+    const list = (names || []).filter(Boolean);
+    const key = list.join('\n');
+    if (waitingRosterTitle) waitingRosterTitle.textContent = `已入场 · ${list.length}`;
+    if (waitingRosterEmpty) {
+      waitingRosterEmpty.classList.toggle('hidden', list.length > 0);
+      waitingRosterEmpty.textContent = list.length ? '' : '等待扫码加入…';
+    }
+    if (!waitingRosterTrack) return;
+    if (key === rosterLastNamesKey && waitingRosterTrack.childElementCount) {
+      startRosterScrollIfNeeded();
+      return;
+    }
+    rosterLastNamesKey = key;
+    stopRosterScroll();
+    waitingRosterTrack.dataset.looped = '0';
+    waitingRosterTrack.innerHTML = list
+      .map((name) => `<div class="roster-name">${escapeHtml(name)}</div>`)
+      .join('');
+    // 布局完成后再判断是否需要循环滚动
+    requestAnimationFrame(() => startRosterScrollIfNeeded());
+  }
+
+  function liveRowKey(r, i) {
+    return String(r.playerId || r.id || r.nickname || `idx-${i}`);
+  }
+
+  function createLiveRowEl(r, i, cap) {
+    const count = Number(r.shakeCount) || 0;
+    const pct = Math.max(0, Math.min(100, Math.round((count / cap) * 1000) / 10));
+    const barPct = count > 0 ? Math.max(2, pct) : 0;
+    const rank = r.rank || i + 1;
+    const key = liveRowKey(r, i);
+    const el = document.createElement('div');
+    el.className = `live-row is-new${rank <= 3 ? ` live-rank-${rank}` : ''}`;
+    el.dataset.key = key;
+    el.dataset.rank = String(rank);
+    el.innerHTML = `
+      <div class="live-medal" aria-hidden="true">${rank}</div>
+      <div class="live-row-body">
+        <div class="live-row-head">
+          <span class="live-row-name"></span>
+          <span class="live-row-count"><b></b><small>次</small></span>
+        </div>
+        <div class="live-bar-track">
+          <div class="live-bar-fill"></div>
         </div>
       </div>`;
-      })
-      .join('');
-    if (liveBoardEmpty) {
-      liveBoardEmpty.classList.toggle('hidden', rows.length > 0);
+    const nameEl = el.querySelector('.live-row-name');
+    nameEl.textContent = r.nickname || '未知';
+    nameEl.title = r.nickname || '';
+    el.querySelector('.live-row-count b').textContent = String(count);
+    el.querySelector('.live-bar-track').setAttribute('aria-label', `能量 ${pct}%`);
+    el.querySelector('.live-bar-fill').style.width = `${barPct}%`;
+    el.addEventListener(
+      'animationend',
+      () => {
+        el.classList.remove('is-new');
+      },
+      { once: true }
+    );
+    return el;
+  }
+
+  function patchLiveRowEl(el, r, i, cap) {
+    const count = Number(r.shakeCount) || 0;
+    const pct = Math.max(0, Math.min(100, Math.round((count / cap) * 1000) / 10));
+    const barPct = count > 0 ? Math.max(2, pct) : 0;
+    const rank = r.rank || i + 1;
+    el.dataset.rank = String(rank);
+    el.classList.remove('live-rank-1', 'live-rank-2', 'live-rank-3');
+    if (rank <= 3) el.classList.add(`live-rank-${rank}`);
+    const medal = el.querySelector('.live-medal');
+    if (medal && medal.textContent !== String(rank)) medal.textContent = String(rank);
+    const nameEl = el.querySelector('.live-row-name');
+    if (nameEl && nameEl.textContent !== (r.nickname || '未知')) {
+      nameEl.textContent = r.nickname || '未知';
+      nameEl.title = r.nickname || '';
     }
-    requestAnimationFrame(() => {
-      liveBoardList.querySelectorAll('.live-bar-fill').forEach((el) => {
-        el.style.width = getComputedStyle(el).getPropertyValue('--bar');
-      });
+    const countB = el.querySelector('.live-row-count b');
+    if (countB && countB.textContent !== String(count)) countB.textContent = String(count);
+    const small = el.querySelector('.live-row-count small');
+    const track = el.querySelector('.live-bar-track');
+    if (track) track.setAttribute('aria-label', `能量 ${pct}%`);
+    const fill = el.querySelector('.live-bar-fill');
+    if (fill) {
+      const next = `${barPct}%`;
+      // 只在变化时更新，避免无意义重绘；宽度只增不减闪回（同人次数只升）
+      if (fill.style.width !== next) fill.style.width = next;
+    }
+  }
+
+  function renderLiveBoard(list) {
+    if (!liveBoardList) return;
+    if (liveBoard) liveBoard.classList.remove('hidden');
+    const rows = (list || []).slice(0, 20);
+    const cap = Math.max(1, Number(energyBarMax) || 200);
+    if (liveBoardTitle) liveBoardTitle.textContent = '实时能量 · Top 20';
+    if (liveBoardEmpty) liveBoardEmpty.classList.toggle('hidden', rows.length > 0);
+
+    const prev = new Map();
+    liveBoardList.querySelectorAll('.live-row[data-key]').forEach((el) => {
+      prev.set(el.dataset.key, el);
     });
+
+    const frag = document.createDocumentFragment();
+    const used = new Set();
+    rows.forEach((r, i) => {
+      const key = liveRowKey(r, i);
+      used.add(key);
+      let el = prev.get(key);
+      if (el) {
+        patchLiveRowEl(el, r, i, cap);
+      } else {
+        el = createLiveRowEl(r, i, cap);
+      }
+      frag.appendChild(el);
+    });
+    // 移除掉榜行
+    prev.forEach((el, key) => {
+      if (!used.has(key)) el.remove();
+    });
+    // 按新名次顺序挂回（appendChild 移动已有节点，不销毁，能量柱不会回 0）
+    liveBoardList.appendChild(frag);
   }
 
   function stopRollAnimation() {
@@ -470,24 +793,30 @@
 
   function renderFinalTop(list) {
     rollWinners.innerHTML = '';
-    const rows = (list || []).slice(0, 5);
+    // 服务端已按并列整组截取，这里不再强行只取 5 条
+    const rows = list || [];
     if (!rows.length) {
       rollWinners.innerHTML = '<p style="color:var(--muted)">暂无上榜</p>';
       return;
     }
     const col = document.createElement('div');
     col.className = 'roll-tier-col roll-tier-top';
-    const title = document.createElement('h3');
-    title.textContent = '本轮前五名';
-    col.appendChild(title);
     rows.forEach((w, i) => {
+      const rank = w.rank || i + 1;
+      const rankClass = rank <= 5 ? `final-rank-${rank}` : 'final-rank-more';
       const card = document.createElement('div');
-      card.className = `roll-winner-card final-rank-${w.rank || i + 1}`;
-      card.style.animationDelay = `${i * 70}ms`;
-      const shakes = w.shakeCount != null ? ` · ${w.shakeCount} 次` : '';
+      card.className = `roll-winner-card ${rankClass}`;
+      card.style.animationDelay = `${Math.min(i, 12) * 70}ms`;
+      const countHtml =
+        w.shakeCount != null
+          ? `<span class="count">${Number(w.shakeCount)}<small>次</small></span>`
+          : '';
       card.innerHTML = `
-        <div class="rank">第 ${w.rank || i + 1} 名${shakes}</div>
-        <div class="name">${escapeHtml(w.nickname)}</div>
+        <div class="rank-badge">第 ${rank} 名</div>
+        <div class="name-row">
+          <span class="name">${escapeHtml(w.nickname)}</span>
+          ${countHtml}
+        </div>
       `;
       col.appendChild(card);
     });
@@ -687,6 +1016,11 @@
     if (state.phase === 'waiting' || state.phase === 'open' || state.phase === 'locked') {
       stageIdle.classList.add('hidden');
       stageQr.classList.remove('hidden');
+      setWaitingDemoVisible(state.phase === 'waiting');
+      setWaitingRosterVisible(state.phase === 'waiting');
+      if (state.phase === 'waiting') {
+        renderWaitingRoster(state.joinedPreview || []);
+      }
       if (liveBoard) {
         liveBoard.classList.toggle('hidden', state.phase === 'waiting');
       }
@@ -707,6 +1041,8 @@
     }
 
     stageQr.classList.add('hidden');
+    setWaitingDemoVisible(false);
+    setWaitingRosterVisible(false);
     if (liveBoard) liveBoard.classList.add('hidden');
     if (roundTimer) roundTimer.classList.add('hidden');
     stageIdle.classList.remove('hidden');
@@ -717,13 +1053,16 @@
     } else if (state.phase === 'done') {
       stageTitle.textContent = '本轮已结束';
       stageDesc.textContent = '可开始新一轮。';
-      applyBackground('done');
+      setDoneFireworksVisible(true);
       playMusic('done');
     }
     renderJoinedCloud(state.joinedPreview);
   }
 
   function applyState(state) {
+    if (state.config && Number(state.config.energyBarMax) > 0) {
+      energyBarMax = Number(state.config.energyBarMax);
+    }
     phasePill.textContent = PHASE_TEXT[state.phase] || state.phase;
     joinedCount.textContent = state.participantCount ?? 0;
     hasShakers = (state.shakenCount || 0) > 0 || (state.totalShakes || 0) > 0;
@@ -850,17 +1189,21 @@
           rollLive.classList.remove('is-intro-only');
           rollLive.classList.add('hidden');
         }
+        if (rollFinal) rollFinal.classList.add('hidden');
         stageQr.classList.remove('hidden');
         stageIdle.classList.add('hidden');
+        setWaitingRosterVisible(false);
+        setWaitingDemoVisible(false);
         applyServerClock(msg);
         syncRoundTimer(msg);
         phasePill.textContent = PHASE_TEXT.open;
         currentPhase = 'open';
         updateButtons('open');
+        renderLiveBoard(msg.topShakers || msg.participants || []);
         applyBackground('default');
         unlockMusic();
         playMusic('default');
-        setStatus('倒计时开始 · 冲起来！');
+        setStatus('倒计时开始 · 看右侧能量条！');
         return;
       }
       if (msg.type === 'round_end') {

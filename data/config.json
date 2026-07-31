@@ -1,4 +1,5 @@
 {
   "liveTopCount": 20,
-  "finalTopCount": 5
+  "finalTopCount": 5,
+  "energyBarMax": 200
 }
